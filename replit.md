@@ -8,6 +8,20 @@ The application serves as both a standalone web platform and a foundation for fu
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes (January 2025)
+
+## Tab Audio Capture Implementation ✅
+- **Date**: January 5, 2025
+- **Achievement**: Successfully implemented Chrome's getDisplayMedia() API for tab audio capture
+- **Features Added**:
+  - UI controls to switch between microphone and tab audio modes
+  - Clear instructions for each capture mode
+  - Better button labeling ("Start/Stop Transcription" with "Actively Listening..." feedback)
+  - Audio level monitoring for tab streams
+  - Error handling for muted or silent tabs
+- **Status**: Core functionality complete, debugging audio data processing
+- **Next**: Resolve MediaRecorder empty audio data issue for tab streams
+
 # System Architecture
 
 ## Frontend Architecture

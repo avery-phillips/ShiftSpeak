@@ -729,10 +729,10 @@ export default function Home() {
                           size="sm"
                           disabled={apiStatus.lemonfox !== 'connected'}
                         >
-                          {isRecording ? (
+                          {isTranscriptionActive ? (
                             <>
                               <Square className="h-3 w-3 mr-2 fill-current" />
-                              Stop Listening
+                              {isRecording ? 'Actively Listening...' : 'Stop Transcription'}
                             </>
                           ) : (
                             <>
@@ -741,7 +741,7 @@ export default function Home() {
                               ) : (
                                 <Mic className="h-3 w-3 mr-2" />
                               )}
-                              Start Listening
+                              Start Transcription
                             </>
                           )}
                         </Button>
