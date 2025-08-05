@@ -1,0 +1,426 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+  
+  /* Material Design Colors */
+  --material-blue: hsl(207, 89%, 42%);
+  --material-green: hsl(122, 39%, 49%);
+  --material-orange: hsl(36, 100%, 50%);
+  --material-gray: hsl(0, 0%, 46%);
+  --material-red: hsl(4, 90%, 58%);
+  
+  /* Status Colors */
+  --status-success: hsl(142, 76%, 36%);
+  --status-warning: hsl(48, 96%, 53%);
+  --status-error: hsl(0, 84%, 60%);
+  --status-info: hsl(217, 91%, 60%);
+  
+  /* Extension Specific */
+  --extension-header: hsl(207, 89%, 42%);
+  --extension-active: hsl(142, 76%, 50%);
+  --extension-inactive: hsl(0, 0%, 60%);
+  
+  /* Caption Overlay */
+  --caption-bg: hsl(0, 0%, 0%);
+  --caption-bg-opacity: 0.9;
+  --caption-original: hsl(0, 0%, 100%);
+  --caption-translated: hsl(142, 76%, 50%);
+  --caption-speaker: hsl(0, 0%, 70%);
+  
+  /* Transcript Panel */
+  --transcript-border: hsl(207, 89%, 54%);
+  --transcript-hover: hsl(0, 0%, 98%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+  
+  /* Material Design Colors - Dark */
+  --material-blue: hsl(207, 89%, 54%);
+  --material-green: hsl(122, 39%, 60%);
+  --material-orange: hsl(36, 100%, 60%);
+  --material-gray: hsl(0, 0%, 60%);
+  --material-red: hsl(4, 90%, 70%);
+  
+  /* Caption Overlay - Dark */
+  --caption-bg: hsl(0, 0%, 0%);
+  --caption-original: hsl(0, 0%, 100%);
+  --caption-translated: hsl(142, 76%, 60%);
+  --caption-speaker: hsl(0, 0%, 70%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  
+  /* Material Shadow */
+  .material-shadow {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1);
+  }
+  
+  /* Fade In Animation */
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+  
+  /* Status Indicator Pulse */
+  .status-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: .5;
+    }
+  }
+}
+
+@layer components {
+  /* Extension Popup Styling */
+  .extension-popup {
+    @apply w-80 max-h-[600px] bg-white rounded-lg shadow-lg;
+  }
+  
+  .extension-header {
+    @apply bg-[hsl(207,89%,42%)] text-white p-4 rounded-t-lg;
+  }
+  
+  /* Toggle Switch Styling */
+  .toggle-switch input {
+    @apply opacity-0 w-0 h-0;
+  }
+  
+  .toggle-slider {
+    @apply relative inline-block w-11 h-6 bg-gray-300 rounded-full cursor-pointer transition-colors duration-300;
+  }
+  
+  .toggle-slider:before {
+    @apply absolute content-[''] h-[18px] w-[18px] left-[3px] bottom-[3px] bg-white rounded-full transition-transform duration-300;
+  }
+  
+  .toggle-switch input:checked + .toggle-slider {
+    @apply bg-[hsl(207,89%,42%)];
+  }
+  
+  .toggle-switch input:checked + .toggle-slider:before {
+    @apply transform translate-x-5;
+  }
+  
+  /* Caption Overlay Styling */
+  .caption-overlay {
+    @apply fixed left-1/2 transform -translate-x-1/2 z-[10000] max-w-[80%];
+    bottom: 80px;
+  }
+  
+  .caption-overlay.position-top {
+    @apply top-20 bottom-auto;
+  }
+  
+  .caption-overlay.position-center {
+    @apply top-1/2 bottom-auto transform -translate-x-1/2 -translate-y-1/2;
+  }
+  
+  .caption-content {
+    @apply bg-black bg-opacity-90 backdrop-blur-sm rounded-lg p-4 space-y-2 shadow-lg border border-gray-700;
+  }
+  
+  .caption-original {
+    @apply text-white;
+  }
+  
+  .caption-translated {
+    @apply text-green-400;
+  }
+  
+  .caption-label {
+    @apply text-xs text-gray-300 block mb-1;
+  }
+  
+  .caption-speaker-info {
+    @apply flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-600;
+  }
+  
+  /* Status Indicators */
+  .status-connected {
+    @apply text-[hsl(142,76%,36%)] flex items-center;
+  }
+  
+  .status-loading {
+    @apply text-[hsl(48,96%,53%)] flex items-center;
+  }
+  
+  .status-disconnected {
+    @apply text-[hsl(0,84%,60%)] flex items-center;
+  }
+  
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+  
+  .status-dot.active {
+    @apply bg-[hsl(142,76%,50%)];
+  }
+  
+  .status-dot.inactive {
+    @apply bg-gray-400;
+  }
+  
+  /* Transcript Panel */
+  .transcript-entry {
+    @apply border-l-2 border-[hsl(207,89%,54%)] pl-3 py-2 hover:bg-[hsl(0,0%,98%)] transition-colors;
+  }
+  
+  .transcript-timestamp {
+    @apply text-xs text-gray-500 mb-1;
+  }
+  
+  .transcript-original {
+    @apply text-sm text-gray-800 mb-1 leading-relaxed;
+  }
+  
+  .transcript-translated {
+    @apply text-sm text-[hsl(142,76%,36%)] leading-relaxed;
+  }
+  
+  .transcript-listening {
+    @apply border-l-2 border-gray-300 pl-3 py-2;
+  }
+  
+  /* Notification Styling */
+  .notification-success {
+    @apply bg-[hsl(142,76%,36%)] text-white;
+  }
+  
+  .notification-error {
+    @apply bg-[hsl(0,84%,60%)] text-white;
+  }
+  
+  .notification-warning {
+    @apply bg-[hsl(48,96%,53%)] text-white;
+  }
+  
+  .notification-info {
+    @apply bg-[hsl(217,91%,60%)] text-white;
+  }
+  
+  /* Video Player Controls */
+  .video-controls {
+    @apply absolute bottom-4 left-4 right-4 bg-black bg-opacity-60 rounded-lg p-3;
+  }
+  
+  .video-control-button {
+    @apply text-white hover:text-gray-300 transition-colors;
+  }
+  
+  /* Upload Area */
+  .upload-area {
+    @apply border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors hover:border-gray-400;
+  }
+  
+  .upload-area.drag-active {
+    @apply border-[hsl(207,89%,54%)] bg-blue-50;
+  }
+  
+  /* Settings Modal Tabs */
+  .settings-tab-content {
+    @apply space-y-4;
+  }
+  
+  .settings-card {
+    @apply bg-white border border-gray-200 rounded-lg p-4;
+  }
+  
+  /* Form Controls */
+  .form-switch {
+    @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .form-switch-thumb {
+    @apply inline-block h-4 w-4 transform rounded-full bg-white transition;
+  }
+  
+  /* Loading States */
+  .loading-spinner {
+    @apply animate-spin h-4 w-4;
+  }
+  
+  /* Error States */
+  .error-message {
+    @apply text-[hsl(0,84%,60%)] text-sm;
+  }
+  
+  /* Success States */
+  .success-message {
+    @apply text-[hsl(142,76%,36%)] text-sm;
+  }
+}
+
+@layer utilities {
+  /* Font Size Utilities for Captions */
+  .caption-small {
+    @apply text-sm;
+  }
+  
+  .caption-medium {
+    @apply text-base;
+  }
+  
+  .caption-large {
+    @apply text-lg;
+  }
+  
+  .caption-xlarge {
+    @apply text-xl;
+  }
+  
+  /* Material Design Color Utilities */
+  .text-material-blue {
+    color: hsl(207, 89%, 42%);
+  }
+  
+  .text-material-green {
+    color: hsl(122, 39%, 49%);
+  }
+  
+  .text-material-orange {
+    color: hsl(36, 100%, 50%);
+  }
+  
+  .bg-material-blue {
+    background-color: hsl(207, 89%, 42%);
+  }
+  
+  .bg-material-green {
+    background-color: hsl(122, 39%, 49%);
+  }
+  
+  .bg-material-orange {
+    background-color: hsl(36, 100%, 50%);
+  }
+  
+  /* Status Color Utilities */
+  .text-status-success {
+    color: hsl(142, 76%, 36%);
+  }
+  
+  .text-status-error {
+    color: hsl(0, 84%, 60%);
+  }
+  
+  .text-status-warning {
+    color: hsl(48, 96%, 53%);
+  }
+  
+  .text-status-info {
+    color: hsl(217, 91%, 60%);
+  }
+  
+  /* Accessibility Utilities */
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+  }
+  
+  .focus-visible {
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+  }
+  
+  /* High Contrast Mode Support */
+  @media (prefers-contrast: high) {
+    .caption-content {
+      @apply border-2 border-white;
+    }
+    
+    .transcript-entry {
+      @apply border-l-4;
+    }
+  }
+  
+  /* Reduced Motion Support */
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in {
+      animation: none;
+    }
+    
+    .status-pulse {
+      animation: none;
+    }
+    
+    .loading-spinner {
+      animation: none;
+    }
+  }
+  
+  /* Print Styles */
+  @media print {
+    .caption-overlay,
+    .status-notifications,
+    .video-controls {
+      @apply hidden;
+    }
+    
+    .transcript-entry {
+      @apply break-inside-avoid;
+    }
+  }
+}
