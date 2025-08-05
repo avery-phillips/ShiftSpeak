@@ -1,6 +1,54 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import type { AudioChunk } from "@/types/transcription";
 
+// Helper functions for Web Audio API processing
+function floatTo16BitPCM(input: Float32Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(input.length * 2);
+  const view = new DataView(buffer);
+  let offset = 0;
+  
+  for (let i = 0; i < input.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, input[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  
+  return buffer;
+}
+
+function createWavBlob(audioBuffer: ArrayBuffer, sampleRate: number): Blob {
+  const length = audioBuffer.byteLength;
+  const buffer = new ArrayBuffer(44 + length);
+  const view = new DataView(buffer);
+  
+  // WAV header
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + length, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, length, true);
+  
+  // Copy audio data
+  const audioView = new Uint8Array(audioBuffer);
+  const bufferView = new Uint8Array(buffer, 44);
+  bufferView.set(audioView);
+  
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 interface UseAudioCaptureOptions {
   onAudioChunk?: (chunk: AudioChunk) => void;
   chunkDuration?: number; // milliseconds
@@ -226,51 +274,62 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
 
       // Create audio context for processing
       audioContextRef.current = new AudioContext({ sampleRate });
+      const audioContext = audioContextRef.current;
       
-      // Create MediaRecorder for audio only
-      const mediaRecorder = new MediaRecorder(audioStream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-      console.log("MediaRecorder created, starting recording...");
-
-      mediaRecorder.ondataavailable = (event) => {
-        console.log("MediaRecorder data available:", event.data.size, "bytes");
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
+      // Create MediaStreamAudioSourceNode from the audio stream
+      const source = audioContext.createMediaStreamSource(audioStream);
+      
+      // Create ScriptProcessorNode for manual audio processing
+      const bufferSize = 4096;
+      const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+      
+      console.log("Web Audio API setup completed, starting audio processing...");
+      
+      let audioChunkBuffer = new Float32Array(0);
+      const targetChunkSize = (sampleRate * chunkDuration) / 1000; // samples per chunk
+      
+      processor.onaudioprocess = (event) => {
+        const inputBuffer = event.inputBuffer;
+        const inputData = inputBuffer.getChannelData(0);
+        
+        // Accumulate audio data
+        const newBuffer = new Float32Array(audioChunkBuffer.length + inputData.length);
+        newBuffer.set(audioChunkBuffer);
+        newBuffer.set(inputData, audioChunkBuffer.length);
+        audioChunkBuffer = newBuffer;
+        
+        // Send chunks when we have enough data
+        while (audioChunkBuffer.length >= targetChunkSize) {
+          const chunk = audioChunkBuffer.slice(0, targetChunkSize);
+          audioChunkBuffer = audioChunkBuffer.slice(targetChunkSize);
           
-          // Convert blob to ArrayBuffer and call callback
-          event.data.arrayBuffer().then((buffer) => {
-            console.log("Converting audio chunk to ArrayBuffer:", buffer.byteLength, "bytes");
-            const chunk: AudioChunk = {
+          // Convert Float32Array to WAV format
+          const wavBuffer = floatTo16BitPCM(chunk);
+          const wavBlob = createWavBlob(wavBuffer, sampleRate);
+          
+          console.log("Web Audio chunk processed:", wavBlob.size, "bytes");
+          
+          wavBlob.arrayBuffer().then((buffer) => {
+            const audioChunk: AudioChunk = {
               data: buffer,
               timestamp: Date.now(),
               duration: chunkDuration,
             };
-            onAudioChunk?.(chunk);
+            onAudioChunk?.(audioChunk);
           });
         }
       };
-
-      mediaRecorder.onerror = (event) => {
-        console.error("MediaRecorder error:", event);
-        setError('Recording error occurred');
-        setIsRecording(false);
-      };
-
-      mediaRecorder.onstart = () => {
-        console.log("MediaRecorder started successfully");
-      };
-
-      mediaRecorder.start(chunkDuration);
+      
+      // Connect the audio processing chain
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      
       setIsRecording(true);
-      console.log("Desktop audio capture started with chunk duration:", chunkDuration);
+      console.log("Desktop audio capture started with Web Audio API");
 
       // Add a timeout to check if we're getting audio data
       setTimeout(() => {
-        if (chunksRef.current.length === 0) {
+        if (audioChunkBuffer.length === 0) {
           console.warn("No audio data received after 5 seconds. The selected source may not have audio playing.");
           setError("No audio detected. Make sure the selected tab is playing audio and 'Share tab audio' was checked during screen sharing.");
         }
