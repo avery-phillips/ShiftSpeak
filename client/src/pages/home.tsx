@@ -308,6 +308,54 @@ export default function Home() {
     }
   };
 
+  const handleToggleMicrophoneAudio = async (active: boolean) => {
+    if (active) {
+      try {
+        // Connect WebSocket first
+        connect();
+        
+        // Create new session
+        if (!currentSession) {
+          await createSessionMutation.mutateAsync();
+        }
+        
+        // Start microphone audio capture
+        console.log("Attempting to capture microphone audio...");
+        await startRecording();
+        console.log("Microphone audio capture initiated, setting transcription active");
+        setIsTranscriptionActive(true);
+        
+        addNotification({
+          type: 'success',
+          title: 'Microphone Capture Started',
+          description: 'Capturing audio from your microphone for live transcription.',
+        });
+      } catch (error) {
+        // Disconnect WebSocket if capture failed
+        disconnect();
+        addNotification({
+          type: 'error',
+          title: 'Microphone Capture Failed',
+          description: error instanceof Error ? error.message : 'Failed to start microphone capture.',
+        });
+      }
+    } else {
+      // Stop audio capture
+      stopRecording();
+      setIsTranscriptionActive(false);
+      setCurrentCaption(null);
+      
+      // Disconnect WebSocket
+      disconnect();
+      
+      addNotification({
+        type: 'info',
+        title: 'Microphone Capture Stopped',
+        description: 'Live transcription has been paused.',
+      });
+    }
+  };
+
   const handleSaveTranscript = async () => {
     if (!currentSession) {
       toast({
@@ -594,18 +642,32 @@ export default function Home() {
                       <p className="text-xs text-gray-600">
                         Capture audio from browser tabs playing videos for real-time translated subtitles
                       </p>
-                      <Button
-                        onClick={() => handleToggleDesktopAudio(!isTranscriptionActive)}
-                        variant={isTranscriptionActive ? "destructive" : "default"}
-                        className="w-full"
-                        size="sm"
-                        disabled={isRecording && !isTranscriptionActive}
-                      >
-                        {isTranscriptionActive ? "Stop Desktop Capture" : "Start Desktop Audio Capture"}
-                      </Button>
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => handleToggleDesktopAudio(!isTranscriptionActive)}
+                          variant={isTranscriptionActive ? "destructive" : "default"}
+                          className="w-full"
+                          size="sm"
+                          disabled={isRecording && !isTranscriptionActive}
+                        >
+                          {isTranscriptionActive ? "Stop Desktop Capture" : "Start Desktop Audio Capture"}
+                        </Button>
+                        <Button
+                          onClick={() => handleToggleMicrophoneAudio(!isTranscriptionActive)}
+                          variant={isTranscriptionActive ? "destructive" : "outline"}
+                          className="w-full"
+                          size="sm"
+                          disabled={isRecording && !isTranscriptionActive}
+                        >
+                          {isTranscriptionActive ? "Stop Microphone Capture" : "Start Microphone Capture"}
+                        </Button>
+                      </div>
                       <div className="text-xs space-y-1">
                         <p className="text-amber-600">
-                          💡 When prompted, select "Share tab audio" to capture video sound
+                          💡 Desktop: Share tab audio | Microphone: Allow microphone access
+                        </p>
+                        <p className="text-blue-600">
+                          🎤 Try microphone capture to test the transcription pipeline while we fix desktop audio
                         </p>
                         {audioError && (
                           <p className="text-red-600 font-medium">
