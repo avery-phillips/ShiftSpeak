@@ -94,10 +94,10 @@ export default function Home() {
       }
     },
     onConnect: () => {
-      setApiStatus(prev => ({ ...prev, lemonfox: 'connected' }));
+      console.log('WebSocket connected');
     },
     onDisconnect: () => {
-      setApiStatus(prev => ({ ...prev, lemonfox: 'disconnected' }));
+      console.log('WebSocket disconnected');
     },
   });
 
@@ -172,6 +172,10 @@ export default function Home() {
         if (response.ok) {
           const status = await response.json();
           console.log('API Status Response:', status);
+          console.log('Setting API status to:', {
+            lemonfox: status.lemonfox || 'disconnected',
+            translation: status.translation || 'disconnected',
+          });
           setApiStatus({
             lemonfox: status.lemonfox || 'disconnected',
             translation: status.translation || 'disconnected',
