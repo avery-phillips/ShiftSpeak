@@ -361,6 +361,55 @@ export default function Home() {
       });
 
       const result = await response.json();
+      
+      // Create session for URL transcription
+      const session = await createSessionMutation.mutateAsync();
+      
+      // Add transcription entries
+      if (result.segments) {
+        for (const segment of result.segments) {
+          // Translate if needed
+          let translatedText = '';
+          if (targetLanguage !== sourceLanguage) {
+            const translateResponse = await apiRequest('POST', '/api/translate', {
+              text: segment.text,
+              sourceLanguage,
+              targetLanguage,
+            });
+            const translation = await translateResponse.json();
+            translatedText = translation.translatedText;
+          }
+
+          await apiRequest('POST', `/api/sessions/${session.id}/entries`, {
+            originalText: segment.text,
+            translatedText,
+            speakerLabel: segment.speaker,
+            timestamp: segment.start * 1000, // Convert to milliseconds
+            confidence: 90, // Mock confidence
+          });
+        }
+      } else if (result.text) {
+        // Handle simple text response without segments
+        let translatedText = '';
+        if (targetLanguage !== sourceLanguage) {
+          const translateResponse = await apiRequest('POST', '/api/translate', {
+            text: result.text,
+            sourceLanguage,
+            targetLanguage,
+          });
+          const translation = await translateResponse.json();
+          translatedText = translation.translatedText;
+        }
+
+        await apiRequest('POST', `/api/sessions/${session.id}/entries`, {
+          originalText: result.text,
+          translatedText,
+          speakerLabel: null,
+          timestamp: 0,
+          confidence: 90,
+        });
+      }
+
       setApiStatus(prev => ({ ...prev, lemonfox: 'connected' }));
       
       addNotification({
@@ -369,15 +418,17 @@ export default function Home() {
         description: 'Media from URL has been transcribed successfully.',
       });
 
-      // Handle result similar to file upload
-      // ... (similar logic as handleFileUpload)
+      // Refresh transcript entries
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/sessions', session.id, 'entries'] 
+      });
 
     } catch (error) {
       setApiStatus(prev => ({ ...prev, lemonfox: 'disconnected' }));
       addNotification({
         type: 'error',
         title: 'URL Failed',
-        description: 'Failed to process media from URL.',
+        description: error instanceof Error ? error.message : 'Failed to process media from URL.',
       });
     }
   };
