@@ -34,6 +34,15 @@ export default function Home() {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [currentSession, setCurrentSession] = useState<TranscriptionSession | null>(null);
   const [currentCaption, setCurrentCaption] = useState<TranscriptionResult | null>(null);
+  const [fileProcessingStatus, setFileProcessingStatus] = useState<{
+    isProcessing: boolean;
+    progress: number;
+    fileName?: string;
+    stage?: 'uploading' | 'transcribing' | 'translating' | 'complete';
+  }>({
+    isProcessing: false,
+    progress: 0,
+  });
   const [apiStatus, setApiStatus] = useState<{
     lemonfox: 'connected' | 'disconnected' | 'loading';
     translation: 'connected' | 'disconnected' | 'loading';
@@ -313,12 +322,20 @@ export default function Home() {
 
   const handleFileUpload = async (file: File) => {
     setApiStatus(prev => ({ ...prev, lemonfox: 'loading' }));
+    setFileProcessingStatus({
+      isProcessing: true,
+      progress: 0,
+      fileName: file.name,
+      stage: 'uploading',
+    });
     
     try {
       const formData = new FormData();
       formData.append('audio', file);
       formData.append('language', sourceLanguage);
       formData.append('speakerLabels', speakerLabels.toString());
+
+      setFileProcessingStatus(prev => ({ ...prev, progress: 20, stage: 'transcribing' }));
 
       const response = await fetch('/api/transcribe/file', {
         method: 'POST',
@@ -331,11 +348,18 @@ export default function Home() {
 
       const result = await response.json();
       
+      setFileProcessingStatus(prev => ({ ...prev, progress: 50 }));
+      
       // Create session for uploaded file
       const session = await createSessionMutation.mutateAsync();
       
+      setFileProcessingStatus(prev => ({ ...prev, progress: 60, stage: 'translating' }));
+      
       // Add transcription entries
       if (result.segments) {
+        const totalSegments = result.segments.length;
+        let processedSegments = 0;
+        
         for (const segment of result.segments) {
           // Translate if needed
           let translatedText = '';
@@ -356,9 +380,14 @@ export default function Home() {
             timestamp: segment.start * 1000, // Convert to milliseconds
             confidence: 90, // Mock confidence
           });
+          
+          processedSegments++;
+          const progress = 60 + (processedSegments / totalSegments) * 35; // 60-95% for translation
+          setFileProcessingStatus(prev => ({ ...prev, progress }));
         }
       }
 
+      setFileProcessingStatus(prev => ({ ...prev, progress: 100, stage: 'complete' }));
       setApiStatus(prev => ({ ...prev, lemonfox: 'connected' }));
       
       addNotification({
@@ -372,8 +401,14 @@ export default function Home() {
         queryKey: ['/api/sessions', session.id, 'entries'] 
       });
 
+      // Clear processing status after a short delay
+      setTimeout(() => {
+        setFileProcessingStatus({ isProcessing: false, progress: 0 });
+      }, 2000);
+
     } catch (error) {
       setApiStatus(prev => ({ ...prev, lemonfox: 'disconnected' }));
+      setFileProcessingStatus({ isProcessing: false, progress: 0 });
       addNotification({
         type: 'error',
         title: 'Upload Failed',
@@ -643,6 +678,38 @@ export default function Home() {
                 </CardContent>
               </Card>
             </div>
+            
+            {/* File Processing Progress */}
+            {fileProcessingStatus.isProcessing && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    Processing {fileProcessingStatus.fileName}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="capitalize">{fileProcessingStatus.stage}</span>
+                      <span>{Math.round(fileProcessingStatus.progress)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${fileProcessingStatus.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    {fileProcessingStatus.stage === 'uploading' && 'Uploading file to server...'}
+                    {fileProcessingStatus.stage === 'transcribing' && 'Converting speech to text...'}
+                    {fileProcessingStatus.stage === 'translating' && 'Translating transcript...'}
+                    {fileProcessingStatus.stage === 'complete' && 'Processing complete!'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             
             {/* File Upload Transcript Results */}
             {currentSession && transcriptEntries.length > 0 && (
