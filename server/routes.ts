@@ -147,7 +147,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error transcribing file:", error);
-      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to transcribe audio" });
+      if (error instanceof Error && error.message.includes('File format not supported')) {
+        res.status(400).json({ error: "Failed to process media from file. Please check the file format or try a different audio/video file." });
+      } else {
+        res.status(500).json({ error: error instanceof Error ? error.message : "Failed to transcribe audio" });
+      }
     }
   });
 
@@ -171,7 +175,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("Error transcribing URL:", error);
-      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to transcribe audio from URL" });
+      if (error instanceof Error && error.message.includes('File format not supported')) {
+        res.status(400).json({ error: "Failed to process media from URL. Please check the file format or try a different audio/video file." });
+      } else {
+        res.status(500).json({ error: error instanceof Error ? error.message : "Failed to transcribe audio from URL" });
+      }
     }
   });
 

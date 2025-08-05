@@ -62,7 +62,9 @@ export class LemonfoxTranscriptionService {
     if (typeof audioData === 'string') {
       formData.append('file', audioData); // URL
     } else {
-      formData.append('file', new Blob([audioData]));
+      // Create a proper audio blob with correct MIME type
+      const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+      formData.append('file', audioBlob, 'audio.wav');
     }
 
     // Add optional parameters with language mapping
