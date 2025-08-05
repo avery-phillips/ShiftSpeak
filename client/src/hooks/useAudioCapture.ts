@@ -53,6 +53,7 @@ interface UseAudioCaptureOptions {
   onAudioChunk?: (chunk: AudioChunk) => void;
   chunkDuration?: number; // milliseconds
   sampleRate?: number;
+  captureMode?: 'microphone' | 'tab-audio'; // New option for capture source
 }
 
 export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
@@ -60,6 +61,7 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
     onAudioChunk,
     chunkDuration = 1000, // 1 second chunks
     sampleRate = 16000,
+    captureMode = 'microphone',
   } = options;
 
   const [isRecording, setIsRecording] = useState(false);
@@ -89,58 +91,91 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
 
     try {
       setError(null);
-      console.log("🎤 Starting microphone recording...");
       
-      // Simple, reliable microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false, // Disable processing for cleaner audio
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 44100, // Standard sample rate
-          channelCount: 1,
-        },
-      });
+      let stream: MediaStream;
+      
+      if (captureMode === 'tab-audio') {
+        console.log("🎥 Starting tab audio capture...");
+        
+        // Request screen sharing with audio capture for tab audio
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true, // Required for Chrome, but we'll only use audio
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            sampleRate: 44100,
+            channelCount: 1,
+          },
+        });
+        
+        // Verify we got audio tracks
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          throw new Error("No audio tracks available from screen share. Make sure to enable 'Share tab audio' when selecting the browser tab.");
+        }
+        
+        console.log("🎥 Tab audio stream obtained:", {
+          audioTracks: audioTracks.length,
+          videoTracks: stream.getVideoTracks().length,
+          label: audioTracks[0].label
+        });
+        
+      } else {
+        console.log("🎤 Starting microphone recording...");
+        
+        // Simple, reliable microphone access
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false, // Disable processing for cleaner audio
+            noiseSuppression: false,
+            autoGainControl: false,
+            sampleRate: 44100, // Standard sample rate
+            channelCount: 1,
+          },
+        });
+      }
 
-      console.log("🎤 Microphone stream obtained");
+      console.log(`${captureMode === 'tab-audio' ? '🎥' : '🎤'} Audio stream obtained`);
       streamRef.current = stream;
 
-      // Verify we have audio tracks
+      // Create audio-only stream for recording (remove video tracks if present)
       const audioTracks = stream.getAudioTracks();
-      if (audioTracks.length === 0) {
-        throw new Error("No audio tracks available");
-      }
+      const audioOnlyStream = new MediaStream();
+      audioTracks.forEach(track => audioOnlyStream.addTrack(track));
       
-      console.log("🎤 Audio track:", {
+      console.log(`${captureMode === 'tab-audio' ? '🎥' : '🎤'} Audio track:`, {
+        mode: captureMode,
         label: audioTracks[0].label,
         enabled: audioTracks[0].enabled,
         readyState: audioTracks[0].readyState
       });
       
-      // Create MediaRecorder with fallback
+      // Create MediaRecorder with audio-only stream
       let mediaRecorder: MediaRecorder;
       try {
-        mediaRecorder = new MediaRecorder(stream, {
+        mediaRecorder = new MediaRecorder(audioOnlyStream, {
           mimeType: 'audio/webm;codecs=opus',
         });
       } catch (e) {
-        console.log("🎤 Opus not supported, using default codec");
-        mediaRecorder = new MediaRecorder(stream);
+        console.log(`${captureMode === 'tab-audio' ? '🎥' : '🎤'} Opus not supported, using default codec`);
+        mediaRecorder = new MediaRecorder(audioOnlyStream);
       }
 
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
-      console.log("🎤 MediaRecorder created with:", mediaRecorder.mimeType);
+      const icon = captureMode === 'tab-audio' ? '🎥' : '🎤';
+      console.log(`${icon} MediaRecorder created with:`, mediaRecorder.mimeType);
 
       mediaRecorder.ondataavailable = (event) => {
-        console.log("🎤 Audio data available:", event.data.size, "bytes");
+        console.log(`${icon} Audio data available:`, event.data.size, "bytes");
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
           
           // Convert blob to ArrayBuffer immediately
           event.data.arrayBuffer().then((buffer) => {
-            console.log("🎤 Audio chunk processed:", buffer.byteLength, "bytes");
+            console.log(`${icon} Audio chunk processed:`, buffer.byteLength, "bytes");
             const chunk: AudioChunk = {
               data: buffer,
               timestamp: Date.now(),
@@ -148,27 +183,27 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
             };
             onAudioChunk?.(chunk);
           }).catch(error => {
-            console.error("🎤 Error processing audio data:", error);
+            console.error(`${icon} Error processing audio data:`, error);
           });
         } else {
-          console.warn("🎤 Empty audio data received");
+          console.warn(`${icon} Empty audio data received`);
         }
       };
 
       mediaRecorder.onerror = (event) => {
-        console.error("🎤 MediaRecorder error:", event);
+        console.error(`${icon} MediaRecorder error:`, event);
         setError("Recording error occurred");
         stopRecording();
       };
 
       mediaRecorder.onstart = () => {
-        console.log("🎤 MediaRecorder started successfully");
+        console.log(`${icon} MediaRecorder started successfully`);
       };
 
       // Start with 1 second intervals for quick feedback
       mediaRecorder.start(1000);
       setIsRecording(true);
-      console.log("🎤 Recording started with 1s intervals");
+      console.log(`${icon} Recording started with 1s intervals (${captureMode})`);
 
       // Check for audio data after 3 seconds
       setTimeout(() => {

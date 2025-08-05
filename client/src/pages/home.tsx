@@ -9,6 +9,7 @@ import { AudioUploader } from "@/components/AudioUploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Mic, Square, Settings } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAudioCapture } from "@/hooks/useAudioCapture";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ export default function Home() {
   const [targetLanguage, setTargetLanguage] = useState("english");
   const [showOriginal, setShowOriginal] = useState(true);
   const [showTranslation, setShowTranslation] = useState(true);
+  const [captureMode, setCaptureMode] = useState<'microphone' | 'tab-audio'>('microphone');
   const [speakerLabels, setSpeakerLabels] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [currentSession, setCurrentSession] = useState<TranscriptionSession | null>(null);
@@ -123,6 +125,7 @@ export default function Home() {
     captureDesktopAudio,
     error: audioError 
   } = useAudioCapture({
+    captureMode: captureMode,
     onAudioChunk: (chunk) => {
       console.log('Audio chunk received:', chunk.data.byteLength, 'bytes', 'Active:', isTranscriptionActive, 'Connected:', isConnected, 'Session:', !!currentSession);
       if (isTranscriptionActive && isConnected && currentSession) {
@@ -356,6 +359,53 @@ export default function Home() {
         description: 'Live transcription has been paused.',
       });
     }
+  };
+
+  const handleStartTranscription = async () => {
+    try {
+      // Connect WebSocket first
+      connect();
+      
+      // Create new session
+      if (!currentSession) {
+        await createSessionMutation.mutateAsync();
+      }
+      
+      // Start audio capture based on selected mode
+      await startRecording();
+      setIsTranscriptionActive(true);
+      
+      const modeText = captureMode === 'tab-audio' ? 'Tab Audio' : 'Microphone';
+      addNotification({
+        type: 'success',
+        title: `${modeText} Capture Started`,
+        description: `Live transcription is now active using ${modeText.toLowerCase()}.`,
+      });
+    } catch (error) {
+      // Disconnect WebSocket if capture failed
+      disconnect();
+      addNotification({
+        type: 'error',
+        title: 'Capture Failed',
+        description: error instanceof Error ? error.message : 'Failed to start audio capture.',
+      });
+    }
+  };
+
+  const handleStopTranscription = async () => {
+    // Stop audio capture
+    stopRecording();
+    setIsTranscriptionActive(false);
+    setCurrentCaption(null);
+    
+    // Disconnect WebSocket
+    disconnect();
+    
+    addNotification({
+      type: 'info',
+      title: 'Transcription Stopped',
+      description: 'Live transcription has been paused.',
+    });
   };
 
   const handleSaveTranscript = async () => {
@@ -643,39 +693,80 @@ export default function Home() {
                   
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-sm">🎬 Live Video Subtitles</CardTitle>
+                      <CardTitle className="text-sm">🎬 Live Audio Capture</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <p className="text-xs text-gray-600">
-                        Capture audio from browser tabs playing videos for real-time translated subtitles
-                      </p>
+                      {/* Audio Source Selection */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium">Audio Source</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant={captureMode === 'microphone' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCaptureMode('microphone')}
+                            className="justify-start text-xs"
+                          >
+                            <Mic className="h-3 w-3 mr-1" />
+                            Mic
+                          </Button>
+                          <Button
+                            variant={captureMode === 'tab-audio' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCaptureMode('tab-audio')}
+                            className="justify-start text-xs"
+                          >
+                            <div className="h-3 w-3 mr-1 flex items-center justify-center text-xs">🎥</div>
+                            Tab
+                          </Button>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <Button
-                          onClick={() => handleToggleDesktopAudio(!isTranscriptionActive)}
+                          onClick={isTranscriptionActive ? handleStopTranscription : handleStartTranscription}
                           variant={isTranscriptionActive ? "destructive" : "default"}
                           className="w-full"
                           size="sm"
-                          disabled={isRecording && !isTranscriptionActive}
+                          disabled={apiStatus.lemonfox !== 'connected'}
                         >
-                          {isTranscriptionActive ? "Stop Desktop Capture" : "Start Desktop Audio Capture"}
-                        </Button>
-                        <Button
-                          onClick={() => handleToggleMicrophoneAudio(!isTranscriptionActive)}
-                          variant={isTranscriptionActive ? "destructive" : "outline"}
-                          className="w-full"
-                          size="sm"
-                          disabled={isRecording && !isTranscriptionActive}
-                        >
-                          {isTranscriptionActive ? "Stop Microphone Capture" : "Start Microphone Capture"}
+                          {isRecording ? (
+                            <>
+                              <Square className="h-3 w-3 mr-2 fill-current" />
+                              Stop Listening
+                            </>
+                          ) : (
+                            <>
+                              {captureMode === 'tab-audio' ? (
+                                <div className="h-3 w-3 mr-2 flex items-center justify-center text-xs">🎥</div>
+                              ) : (
+                                <Mic className="h-3 w-3 mr-2" />
+                              )}
+                              Start Listening
+                            </>
+                          )}
                         </Button>
                       </div>
+                      
                       <div className="text-xs space-y-1">
-                        <p className="text-amber-600">
-                          💡 Desktop: Share tab audio | Microphone: Allow microphone access
-                        </p>
-                        <p className="text-blue-600">
-                          🎤 Try microphone capture to test the transcription pipeline while we fix desktop audio
-                        </p>
+                        {captureMode === 'tab-audio' ? (
+                          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                            <p className="text-blue-700 dark:text-blue-300 font-medium">
+                              🎥 Tab Audio Mode
+                            </p>
+                            <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">
+                              Select browser tab → Enable "Share tab audio" → Click Share
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                            <p className="text-green-700 dark:text-green-300 font-medium">
+                              🎤 Microphone Mode
+                            </p>
+                            <p className="text-green-600 dark:text-green-400 text-xs mt-1">
+                              Allow microphone access and speak
+                            </p>
+                          </div>
+                        )}
                         {audioError && (
                           <p className="text-red-600 font-medium">
                             ⚠️ {audioError}
