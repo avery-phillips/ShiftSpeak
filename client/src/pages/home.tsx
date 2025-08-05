@@ -684,7 +684,6 @@ export default function Home() {
               <div className="lg:col-span-2 space-y-6">
                 <VideoPlayer
                   onAudioCapture={handleAudioCapture}
-                  onFileUpload={handleFileUpload}
                   onUrlLoad={handleUrlLoad}
                   isCapturing={isRecording}
                 />
@@ -769,6 +768,31 @@ export default function Home() {
                 </CardContent>
               </Card>
             </div>
+            
+            {/* Transcript Display for Uploaded Files */}
+            {currentSession && transcriptEntries.length > 0 && (
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Transcription Results</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <TranscriptPanel
+                      entries={transcriptEntries}
+                      isListening={false}
+                      onClear={handleClearTranscript}
+                      onExport={(format) => {
+                        if (currentSession) {
+                          window.open(`/api/sessions/${currentSession.id}/export?format=${format}`);
+                        }
+                      }}
+                      showOriginal={showOriginal}
+                      showTranslation={showTranslation}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
             
             {/* File Processing Progress */}
             {fileProcessingStatus.isProcessing && (

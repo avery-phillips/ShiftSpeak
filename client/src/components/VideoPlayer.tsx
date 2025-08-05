@@ -2,21 +2,19 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, Maximize, Upload, Link } from "lucide-react";
+import { Play, Pause, Volume2, Maximize, Link } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 interface VideoPlayerProps {
   onAudioCapture?: (stream: MediaStream) => void;
-  onFileUpload?: (file: File) => void;
   onUrlLoad?: (url: string) => void;
   isCapturing?: boolean;
 }
 
 export function VideoPlayer({ 
   onAudioCapture, 
-  onFileUpload, 
   onUrlLoad,
   isCapturing = false 
 }: VideoPlayerProps) {
@@ -27,7 +25,7 @@ export function VideoPlayer({
   const [url, setUrl] = useState("");
   
   const videoRef = useRef<HTMLVideoElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { toast } = useToast();
 
   const togglePlay = () => {
@@ -153,31 +151,10 @@ export function VideoPlayer({
 
   return (
     <Card className="overflow-hidden">
-      {/* Media Upload/URL Input */}
+      {/* Media URL Input */}
       <div className="p-4 border-b space-y-4">
         <div className="space-y-2">
-          <Label>Upload Audio/Video File</Label>
-          <div className="flex space-x-2">
-            <Input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept="audio/*,video/*"
-              className="hidden"
-            />
-            <Button 
-              onClick={() => fileInputRef.current?.click()}
-              variant="outline"
-              className="flex-1"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Choose File
-            </Button>
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <Label>Or Enter Media URL</Label>
+          <Label>Enter Media URL</Label>
           <div className="flex space-x-2">
             <Input
               value={url}
