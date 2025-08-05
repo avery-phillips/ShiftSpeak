@@ -11,10 +11,34 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-The client uses React with TypeScript and Vite as the build tool. The UI is built using shadcn/ui components with Radix UI primitives and styled with Tailwind CSS. State management is handled through React Query for server state and local React state for UI interactions. The app uses Wouter for routing and includes components for audio uploading, video playback, caption overlays, transcript panels, and settings management.
+The client uses React with TypeScript and Vite as the build tool. The UI is built using shadcn/ui components with Radix UI primitives and styled with Tailwind CSS. State management is handled through React Query for server state and local React state for UI interactions. The app uses Wouter for routing and includes components for audio uploading, video playbook, caption overlays, transcript panels, and settings management.
 
 ## Backend Architecture
 The server is an Express.js application with TypeScript that provides RESTful APIs and WebSocket connections for real-time transcription. It uses a layered architecture with separate service classes for transcription (LemonfoxTranscriptionService) and translation (OpenAITranslationService). The storage layer is abstracted through an IStorage interface with a memory-based implementation for development.
+
+## Chrome Extension Architecture (January 2025)
+**Modular Design for Future Extension Development:**
+
+### Core Shared Modules (`shared/core/`)
+- **TranscriptionManager.ts**: Platform-agnostic transcription logic
+- **TranslationManager.ts**: Reusable translation functionality  
+- **AudioCapture.ts**: Cross-platform audio recording utilities
+- **CaptionRenderer.ts**: Universal caption overlay system
+
+### Extension Structure (`extension/`)
+- **manifest.json**: Chrome extension configuration (Manifest V3)
+- **background.js**: Service worker for API calls and settings management
+- **content.js**: Content script injected into web pages for real-time captions
+- **popup.html/js**: Extension popup interface for quick controls
+- **content.css**: Styling for caption overlays on web pages
+
+### Reusable Components
+The extension reuses core components from the web application:
+- Transcription services (`server/services/`)
+- UI components (`client/src/components/`) 
+- Shared type definitions (`shared/schema.ts`)
+
+This modular architecture allows seamless transition from web app to Chrome extension while maintaining code reusability and consistent functionality across platforms.
 
 ## Database Design
 Uses Drizzle ORM with PostgreSQL (configured for Neon Database) with the following schema:

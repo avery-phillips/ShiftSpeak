@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 320px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      margin: 0;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .logo {
+      font-size: 18px;
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 5px;
+    }
+    
+    .tagline {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    
+    .control-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+    
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 24px;
+      background-color: #d1d5db;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .toggle-switch.active {
+      background-color: #2563eb;
+    }
+    
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+    
+    .toggle-switch.active::after {
+      transform: translateX(26px);
+    }
+    
+    .recording-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    
+    .btn-primary {
+      background-color: #2563eb;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #1d4ed8;
+    }
+    
+    .btn-secondary {
+      background-color: #f3f4f6;
+      color: #374151;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #e5e7eb;
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .status {
+      text-align: center;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .status.recording {
+      background-color: #fef2f2;
+      color: #dc2626;
+    }
+    
+    .status.ready {
+      background-color: #f0fdf4;
+      color: #166534;
+    }
+    
+    .status.inactive {
+      background-color: #f9fafb;
+      color: #6b7280;
+    }
+    
+    .settings-link {
+      text-align: center;
+      margin-top: 15px;
+    }
+    
+    .settings-link a {
+      color: #2563eb;
+      text-decoration: none;
+      font-size: 12px;
+    }
+    
+    .settings-link a:hover {
+      text-decoration: underline;
+    }
+    
+    .quick-settings {
+      margin-top: 15px;
+    }
+    
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    
+    .setting-label {
+      font-size: 12px;
+      color: #374151;
+    }
+    
+    select {
+      padding: 4px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 12px;
+      background-color: white;
+    }
+    
+    input[type="checkbox"] {
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">Shift Speak</div>
+    <div class="tagline">Real-time Transcription & Translation</div>
+  </div>
+  
+  <div class="control-section">
+    <div class="toggle-container">
+      <span>Enable on this page</span>
+      <div class="toggle-switch" id="enableToggle"></div>
+    </div>
+    
+    <div class="recording-controls">
+      <button class="btn btn-primary" id="startBtn">Start Recording</button>
+      <button class="btn btn-secondary" id="stopBtn" disabled>Stop</button>
+    </div>
+    
+    <div class="status inactive" id="status">Click "Start Recording" to begin</div>
+  </div>
+  
+  <div class="control-section">
+    <div class="quick-settings">
+      <div class="setting-row">
+        <span class="setting-label">Source Language</span>
+        <select id="sourceLanguage">
+          <option value="auto">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="zh">Chinese</option>
+          <option value="ja">Japanese</option>
+        </select>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label">Target Language</span>
+        <select id="targetLanguage">
+          <option value="english">English</option>
+          <option value="spanish">Spanish</option>
+          <option value="french">French</option>
+          <option value="german">German</option>
+          <option value="chinese">Chinese</option>
+          <option value="japanese">Japanese</option>
+        </select>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label">Show Original</span>
+        <input type="checkbox" id="showOriginal" checked>
+      </div>
+      
+      <div class="setting-row">
+        <span class="setting-label">Show Translation</span>
+        <input type="checkbox" id="showTranslation" checked>
+      </div>
+    </div>
+  </div>
+  
+  <div class="settings-link">
+    <a href="#" id="settingsLink">Advanced Settings & API Keys</a>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
