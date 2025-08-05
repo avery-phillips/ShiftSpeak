@@ -279,52 +279,67 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       // Create MediaStreamAudioSourceNode from the audio stream
       const source = audioContext.createMediaStreamSource(audioStream);
       
-      // Create ScriptProcessorNode for manual audio processing
-      const bufferSize = 4096;
-      const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+      // Use AnalyserNode and MediaRecorder approach instead of deprecated ScriptProcessorNode
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
       
-      console.log("Web Audio API setup completed, starting audio processing...");
+      // Connect source to analyser for monitoring
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
       
-      let audioChunkBuffer = new Float32Array(0);
-      const targetChunkSize = (sampleRate * chunkDuration) / 1000; // samples per chunk
+      console.log("Web Audio API setup completed with AnalyserNode");
+      console.log("AudioContext state:", audioContext.state);
+      console.log("AudioContext sample rate:", audioContext.sampleRate);
       
-      processor.onaudioprocess = (event) => {
-        const inputBuffer = event.inputBuffer;
-        const inputData = inputBuffer.getChannelData(0);
+      // Resume audio context if needed
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+        console.log("AudioContext resumed for processing");
+      }
+      
+      // Use MediaRecorder with the properly configured audio stream
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(audioStream, {
+          mimeType: 'audio/webm;codecs=opus',
+        });
+      } catch (e) {
+        // Fallback to default codec if opus is not supported
+        mediaRecorder = new MediaRecorder(audioStream);
+      }
+      
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+      
+      console.log("MediaRecorder created with MIME type:", mediaRecorder.mimeType);
+      
+      // Monitor audio levels to verify signal
+      const checkAudioLevel = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
         
-        console.log("Audio processing event - buffer length:", inputData.length, "first few samples:", inputData.slice(0, 5));
-        
-        // Check if there's actual audio signal
-        let hasSignal = false;
-        let maxAmplitude = 0;
-        for (let i = 0; i < inputData.length; i++) {
-          const amplitude = Math.abs(inputData[i]);
-          if (amplitude > 0.001) { // Threshold for detecting signal
-            hasSignal = true;
-          }
-          maxAmplitude = Math.max(maxAmplitude, amplitude);
+        if (average > 0) {
+          console.log("Audio level detected:", average);
         }
         
-        console.log("Audio signal detected:", hasSignal, "max amplitude:", maxAmplitude);
-        
-        // Accumulate audio data
-        const newBuffer = new Float32Array(audioChunkBuffer.length + inputData.length);
-        newBuffer.set(audioChunkBuffer);
-        newBuffer.set(inputData, audioChunkBuffer.length);
-        audioChunkBuffer = newBuffer;
-        
-        // Send chunks when we have enough data
-        while (audioChunkBuffer.length >= targetChunkSize) {
-          const chunk = audioChunkBuffer.slice(0, targetChunkSize);
-          audioChunkBuffer = audioChunkBuffer.slice(targetChunkSize);
+        if (isRecording) {
+          requestAnimationFrame(checkAudioLevel);
+        }
+      };
+      
+      mediaRecorder.ondataavailable = (event) => {
+        console.log("MediaRecorder data available:", event.data.size, "bytes");
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
           
-          // Convert Float32Array to WAV format
-          const wavBuffer = floatTo16BitPCM(chunk);
-          const wavBlob = createWavBlob(wavBuffer, sampleRate);
-          
-          console.log("Web Audio chunk processed:", wavBlob.size, "bytes");
-          
-          wavBlob.arrayBuffer().then((buffer) => {
+          event.data.arrayBuffer().then((buffer) => {
+            console.log("Converting MediaRecorder data to ArrayBuffer:", buffer.byteLength, "bytes");
             const audioChunk: AudioChunk = {
               data: buffer,
               timestamp: Date.now(),
@@ -335,39 +350,29 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
         }
       };
       
-      // Connect the audio processing chain
-      source.connect(processor);
-      processor.connect(audioContext.destination);
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
+        setError('Recording error occurred');
+        setIsRecording(false);
+      };
       
-      console.log("Audio processing chain connected");
-      console.log("AudioContext state:", audioContext.state);
-      console.log("AudioContext sample rate:", audioContext.sampleRate);
+      mediaRecorder.onstart = () => {
+        console.log("MediaRecorder started successfully");
+        checkAudioLevel(); // Start audio level monitoring
+      };
       
-      // Resume audio context if needed (required by some browsers)
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-          console.log("AudioContext resumed for processing");
-        });
-      }
+      // Start recording with smaller time slices for more frequent chunks
+      mediaRecorder.start(chunkDuration);
+      console.log("MediaRecorder started with timeslice:", chunkDuration, "ms");
       
       setIsRecording(true);
       console.log("Desktop audio capture started with Web Audio API");
 
       // Add a timeout to check if we're getting audio data
       setTimeout(() => {
-        if (audioChunkBuffer.length === 0) {
+        if (chunksRef.current.length === 0) {
           console.warn("No audio data received after 5 seconds. The selected source may not have audio playing.");
           setError("No audio detected. Make sure the selected tab is playing audio and 'Share tab audio' was checked during screen sharing.");
-          
-          // Try to resume audio context if it's suspended
-          if (audioContext.state === 'suspended') {
-            console.log("AudioContext is suspended, attempting to resume...");
-            audioContext.resume().then(() => {
-              console.log("AudioContext resumed successfully");
-            }).catch((err) => {
-              console.error("Failed to resume AudioContext:", err);
-            });
-          }
         }
       }, 5000);
 
