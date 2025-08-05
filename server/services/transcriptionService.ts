@@ -60,9 +60,11 @@ export class LemonfoxTranscriptionService {
     
     // Handle both file uploads and URLs
     if (typeof audioData === 'string') {
-      formData.append('file', audioData); // URL
+      // For URLs, append the URL string directly
+      console.log('Sending URL to Lemonfox API:', audioData);
+      formData.append('file', audioData);
     } else {
-      // Create a proper audio blob with correct MIME type
+      // For file uploads, create a proper audio blob with correct MIME type
       const audioBlob = new Blob([audioData], { type: 'audio/wav' });
       formData.append('file', audioBlob, 'audio.wav');
     }

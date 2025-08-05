@@ -164,6 +164,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "URL is required" });
       }
 
+      // Validate URL format
+      try {
+        new URL(url);
+      } catch (error) {
+        return res.status(400).json({ error: "Invalid URL format" });
+      }
+
+      console.log('Transcribing URL:', url);
+
       const options = {
         language: language || 'auto',
         responseFormat: 'verbose_json' as const,
