@@ -110,13 +110,17 @@ export class MemStorage implements IStorage {
       confidence: insertEntry.confidence || null,
     };
     this.entries.set(id, entry);
+    console.log(`📝 Added entry ${id} to session ${insertEntry.sessionId}. Total entries: ${this.entries.size}`);
     return entry;
   }
 
   async getSessionEntries(sessionId: string): Promise<TranscriptionEntry[]> {
-    return Array.from(this.entries.values())
+    const entries = Array.from(this.entries.values())
       .filter((entry) => entry.sessionId === sessionId)
       .sort((a, b) => a.timestamp - b.timestamp);
+    console.log(`📋 Getting entries for session ${sessionId}. Found: ${entries.length} entries. Total in storage: ${this.entries.size}`);
+    console.log(`📋 All entries in storage:`, Array.from(this.entries.values()).map(e => ({ id: e.id, sessionId: e.sessionId, text: e.originalText.substring(0, 50) })));
+    return entries;
   }
 
   async getUserSettings(userId: string): Promise<UserSettings | undefined> {

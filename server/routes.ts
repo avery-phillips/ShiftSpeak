@@ -127,6 +127,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add entry to session (transcript entry)
+  app.post("/api/sessions/:id/entries", async (req, res) => {
+    try {
+      const validatedData = insertTranscriptionEntrySchema.parse({
+        ...req.body,
+        sessionId: req.params.id,
+      });
+      
+      const entry = await storage.addTranscriptionEntry(validatedData);
+      res.json(entry);
+    } catch (error) {
+      console.error("Error adding entry:", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to add transcript entry" });
+    }
+  });
+
   // Upload audio file for transcription
   app.post("/api/transcribe/file", upload.single('audio'), async (req, res) => {
     try {
