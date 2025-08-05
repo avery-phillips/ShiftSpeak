@@ -176,6 +176,77 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
     }
   }, [sampleRate, onAudioChunk]);
 
+  const captureDesktopAudio = useCallback(async () => {
+    if (!isSupported) {
+      setError("Audio capture is not supported");
+      return;
+    }
+
+    try {
+      setError(null);
+      
+      // Request screen/tab sharing with audio
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        } as any,
+      });
+
+      // Extract only the audio track
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        throw new Error("No audio track available from screen capture. Make sure to select 'Share tab audio' when prompted.");
+      }
+
+      const audioStream = new MediaStream(audioTracks);
+      streamRef.current = audioStream;
+
+      // Stop video tracks to save resources
+      stream.getVideoTracks().forEach(track => track.stop());
+
+      // Create audio context for processing
+      audioContextRef.current = new AudioContext({ sampleRate });
+      
+      // Create MediaRecorder for audio only
+      const mediaRecorder = new MediaRecorder(audioStream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+          
+          // Convert blob to ArrayBuffer and call callback
+          event.data.arrayBuffer().then((buffer) => {
+            const chunk: AudioChunk = {
+              data: buffer,
+              timestamp: Date.now(),
+              duration: chunkDuration,
+            };
+            onAudioChunk?.(chunk);
+          });
+        }
+      };
+
+      mediaRecorder.onerror = () => {
+        setError('Recording error occurred');
+        setIsRecording(false);
+      };
+
+      mediaRecorder.start(chunkDuration);
+      setIsRecording(true);
+
+    } catch (error) {
+      setError(`Failed to capture desktop audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [isSupported, chunkDuration, onAudioChunk, sampleRate]);
+
   return {
     isRecording,
     isSupported,
@@ -183,5 +254,6 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
     startRecording,
     stopRecording,
     captureFromElement,
+    captureDesktopAudio,
   };
 }

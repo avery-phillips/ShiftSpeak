@@ -6,6 +6,7 @@ import { TranscriptPanel } from "@/components/TranscriptPanel";
 import { SettingsModal } from "@/components/SettingsModal";
 import { StatusNotifications, useNotifications } from "@/components/StatusNotifications";
 import { AudioUploader } from "@/components/AudioUploader";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -107,6 +108,7 @@ export default function Home() {
     startRecording, 
     stopRecording, 
     captureFromElement,
+    captureDesktopAudio,
     error: audioError 
   } = useAudioCapture({
     onAudioChunk: (chunk) => {
@@ -242,6 +244,36 @@ export default function Home() {
         type: 'info',
         title: 'Transcription Stopped',
         description: 'Real-time transcription has been paused.',
+      });
+    }
+  };
+
+  const handleToggleDesktopAudio = async (active: boolean) => {
+    if (active) {
+      // Create new session
+      if (!currentSession) {
+        await createSessionMutation.mutateAsync();
+      }
+      
+      // Start desktop audio capture
+      await captureDesktopAudio();
+      setIsTranscriptionActive(true);
+      
+      addNotification({
+        type: 'success',
+        title: 'Desktop Audio Capture Started',
+        description: 'Capturing audio from your screen/tab for live subtitles.',
+      });
+    } else {
+      // Stop audio capture
+      stopRecording();
+      setIsTranscriptionActive(false);
+      setCurrentCaption(null);
+      
+      addNotification({
+        type: 'info',
+        title: 'Desktop Audio Capture Stopped',
+        description: 'Live subtitle capture has been paused.',
       });
     }
   };
@@ -479,23 +511,47 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Extension Popup */}
               <div className="lg:col-span-1">
-                <ExtensionPopup
-                  isActive={isTranscriptionActive}
-                  onToggleActive={handleToggleTranscription}
-                  sourceLanguage={sourceLanguage}
-                  onSourceLanguageChange={setSourceLanguage}
-                  targetLanguage={targetLanguage}
-                  onTargetLanguageChange={setTargetLanguage}
-                  showOriginal={showOriginal}
-                  onShowOriginalChange={setShowOriginal}
-                  showTranslation={showTranslation}
-                  onShowTranslationChange={setShowTranslation}
-                  speakerLabels={speakerLabels}
-                  onSpeakerLabelsChange={setSpeakerLabels}
-                  onSaveTranscript={handleSaveTranscript}
-                  onOpenSettings={() => setSettingsModalOpen(true)}
-                  apiStatus={apiStatus}
-                />
+                <div className="space-y-4">
+                  <ExtensionPopup
+                    isActive={isTranscriptionActive}
+                    onToggleActive={handleToggleTranscription}
+                    sourceLanguage={sourceLanguage}
+                    onSourceLanguageChange={setSourceLanguage}
+                    targetLanguage={targetLanguage}
+                    onTargetLanguageChange={setTargetLanguage}
+                    showOriginal={showOriginal}
+                    onShowOriginalChange={setShowOriginal}
+                    showTranslation={showTranslation}
+                    onShowTranslationChange={setShowTranslation}
+                    speakerLabels={speakerLabels}
+                    onSpeakerLabelsChange={setSpeakerLabels}
+                    onSaveTranscript={handleSaveTranscript}
+                    onOpenSettings={() => setSettingsModalOpen(true)}
+                    apiStatus={apiStatus}
+                  />
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">🎬 Live Video Subtitles</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-xs text-gray-600">
+                        Capture audio from browser tabs playing videos for real-time translated subtitles
+                      </p>
+                      <Button
+                        onClick={() => handleToggleDesktopAudio(!isTranscriptionActive)}
+                        variant={isTranscriptionActive ? "destructive" : "default"}
+                        className="w-full"
+                        size="sm"
+                      >
+                        {isTranscriptionActive ? "Stop" : "Start"} Desktop Audio Capture
+                      </Button>
+                      <p className="text-xs text-amber-600">
+                        💡 When prompted, select "Share tab audio" to capture video sound
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
 
               {/* Video Player and Captions */}
