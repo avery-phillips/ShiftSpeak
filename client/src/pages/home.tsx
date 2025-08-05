@@ -7,7 +7,7 @@ import { SettingsModal } from "@/components/SettingsModal";
 import { StatusNotifications, useNotifications } from "@/components/StatusNotifications";
 import { AudioUploader } from "@/components/AudioUploader";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAudioCapture } from "@/hooks/useAudioCapture";
@@ -73,9 +73,11 @@ export default function Home() {
   });
 
   // Fetch transcript entries for current session
-  const { data: transcriptEntries = [] } = useQuery<TranscriptionEntry[]>({
+  const { data: transcriptEntries = [], refetch: refetchEntries } = useQuery<TranscriptionEntry[]>({
     queryKey: ['/api/sessions', currentSession?.id, 'entries'],
     enabled: !!currentSession,
+    refetchInterval: 2000, // Poll every 2 seconds when active
+    refetchIntervalInBackground: false,
   });
 
   // WebSocket for real-time transcription (only connect when needed)
@@ -465,15 +467,20 @@ export default function Home() {
         description: `${file.name} has been transcribed successfully.`,
       });
 
-      // Refresh transcript entries
-      queryClient.invalidateQueries({ 
+      // Force refresh transcript entries
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/sessions', session.id, 'entries'] 
+      });
+      
+      // Also force a refetch
+      await queryClient.refetchQueries({ 
         queryKey: ['/api/sessions', session.id, 'entries'] 
       });
 
       // Clear processing status after a short delay
       setTimeout(() => {
         setFileProcessingStatus({ isProcessing: false, progress: 0 });
-      }, 2000);
+      }, 3000);
 
     } catch (error) {
       setApiStatus(prev => ({ ...prev, lemonfox: 'disconnected' }));
@@ -769,14 +776,20 @@ export default function Home() {
               </Card>
             </div>
             
-            {/* Transcript Display for Uploaded Files */}
-            {currentSession && transcriptEntries.length > 0 && (
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Transcription Results</CardTitle>
-                  </CardHeader>
-                  <CardContent>
+            {/* Always Show Transcript Panel with Greyed Out Buttons */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transcription Results</CardTitle>
+                  <CardDescription>
+                    {currentSession && transcriptEntries.length > 0 
+                      ? "View and export your transcription results below"
+                      : "Upload a file above to see transcription results here"
+                    }
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {currentSession && transcriptEntries.length > 0 ? (
                     <TranscriptPanel
                       entries={transcriptEntries}
                       isListening={false}
@@ -789,10 +802,27 @@ export default function Home() {
                       showOriginal={showOriginal}
                       showTranslation={showTranslation}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  ) : (
+                    <div className="text-center py-8 space-y-4">
+                      <div className="text-gray-400 text-sm">
+                        No transcription results yet
+                      </div>
+                      <div className="flex gap-2 justify-center">
+                        <Button variant="outline" disabled size="sm">
+                          Clear Transcript
+                        </Button>
+                        <Button variant="outline" disabled size="sm">
+                          Export as SRT
+                        </Button>
+                        <Button variant="outline" disabled size="sm">
+                          Export as TXT
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
             
             {/* File Processing Progress */}
             {fileProcessingStatus.isProcessing && (
