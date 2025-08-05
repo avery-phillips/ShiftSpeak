@@ -292,6 +292,21 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
         const inputBuffer = event.inputBuffer;
         const inputData = inputBuffer.getChannelData(0);
         
+        console.log("Audio processing event - buffer length:", inputData.length, "first few samples:", inputData.slice(0, 5));
+        
+        // Check if there's actual audio signal
+        let hasSignal = false;
+        let maxAmplitude = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          const amplitude = Math.abs(inputData[i]);
+          if (amplitude > 0.001) { // Threshold for detecting signal
+            hasSignal = true;
+          }
+          maxAmplitude = Math.max(maxAmplitude, amplitude);
+        }
+        
+        console.log("Audio signal detected:", hasSignal, "max amplitude:", maxAmplitude);
+        
         // Accumulate audio data
         const newBuffer = new Float32Array(audioChunkBuffer.length + inputData.length);
         newBuffer.set(audioChunkBuffer);
@@ -324,6 +339,17 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       source.connect(processor);
       processor.connect(audioContext.destination);
       
+      console.log("Audio processing chain connected");
+      console.log("AudioContext state:", audioContext.state);
+      console.log("AudioContext sample rate:", audioContext.sampleRate);
+      
+      // Resume audio context if needed (required by some browsers)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          console.log("AudioContext resumed for processing");
+        });
+      }
+      
       setIsRecording(true);
       console.log("Desktop audio capture started with Web Audio API");
 
@@ -332,6 +358,16 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
         if (audioChunkBuffer.length === 0) {
           console.warn("No audio data received after 5 seconds. The selected source may not have audio playing.");
           setError("No audio detected. Make sure the selected tab is playing audio and 'Share tab audio' was checked during screen sharing.");
+          
+          // Try to resume audio context if it's suspended
+          if (audioContext.state === 'suspended') {
+            console.log("AudioContext is suspended, attempting to resume...");
+            audioContext.resume().then(() => {
+              console.log("AudioContext resumed successfully");
+            }).catch((err) => {
+              console.error("Failed to resume AudioContext:", err);
+            });
+          }
         }
       }, 5000);
 
