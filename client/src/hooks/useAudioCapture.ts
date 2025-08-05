@@ -150,6 +150,47 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
         enabled: audioTracks[0].enabled,
         readyState: audioTracks[0].readyState
       });
+
+      // For tab audio, add audio level monitoring
+      if (captureMode === 'tab-audio') {
+        try {
+          const audioContext = new AudioContext();
+          const source = audioContext.createMediaStreamSource(audioOnlyStream);
+          const analyser = audioContext.createAnalyser();
+          source.connect(analyser);
+          
+          analyser.fftSize = 256;
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          
+          let audioDetected = false;
+          const checkAudioLevel = () => {
+            if (audioContext.state === 'closed') return;
+            
+            analyser.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+            
+            if (average > 0.1 && !audioDetected) { // Very low threshold
+              audioDetected = true;
+              console.log('🎥 Tab audio confirmed - audio levels detected:', average);
+            }
+          };
+          
+          // Check audio levels every 100ms for the first 5 seconds
+          const audioCheckInterval = setInterval(checkAudioLevel, 100);
+          setTimeout(() => {
+            clearInterval(audioCheckInterval);
+            if (!audioDetected) {
+              console.warn('🎥 No audio levels detected in tab - tab may be muted or paused');
+              setError('No audio detected in tab. Please ensure the tab has audio playing and is not muted.');
+            }
+            audioContext.close();
+          }, 5000);
+          
+        } catch (error) {
+          console.warn('🎥 Audio level monitoring failed:', error);
+        }
+      }
       
       // Create MediaRecorder with audio-only stream
       let mediaRecorder: MediaRecorder;
@@ -208,10 +249,12 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       // Check for audio data after 3 seconds
       setTimeout(() => {
         if (chunksRef.current.length === 0) {
-          console.warn("🎤 No audio data received - microphone may not be working");
-          setError("No audio detected. Please check your microphone and speak louder.");
+          const modeText = captureMode === 'tab-audio' ? 'tab audio' : 'microphone';
+          console.warn(`🎤 No audio data received - ${modeText} may not be working`);
+          setError(`No audio detected. Please check your ${modeText} and try again.`);
         } else {
-          console.log("🎤 Audio flowing normally:", chunksRef.current.length, "chunks");
+          const icon = captureMode === 'tab-audio' ? '🎥' : '🎤';
+          console.log(`${icon} Audio flowing normally:`, chunksRef.current.length, "chunks");
         }
       }, 3000);
 
