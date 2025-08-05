@@ -308,17 +308,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws.on('message', async (message: Buffer) => {
       try {
         const data = JSON.parse(message.toString());
+        console.log('WebSocket message received:', data.type, 'Audio size:', data.audio ? data.audio.length : 'N/A');
         
         if (data.type === 'audio_chunk') {
           // Handle real-time audio transcription
           const audioBuffer = Buffer.from(data.audio, 'base64');
+          console.log('Processing audio chunk:', audioBuffer.length, 'bytes');
+          
           const options = {
             language: data.language || 'auto',
             responseFormat: 'json' as const,
             speakerLabels: data.speakerLabels || false,
           };
 
+          console.log('Transcription options:', options);
           const result = await transcriptionService.transcribeAudioStream(audioBuffer, options);
+          console.log('Transcription result:', result);
           
           // Translate if needed
           let translatedText = '';

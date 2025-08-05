@@ -122,11 +122,13 @@ export default function Home() {
     error: audioError 
   } = useAudioCapture({
     onAudioChunk: (chunk) => {
+      console.log('Audio chunk received:', chunk.data.byteLength, 'bytes', 'Active:', isTranscriptionActive, 'Connected:', isConnected, 'Session:', !!currentSession);
       if (isTranscriptionActive && isConnected && currentSession) {
         // Convert audio chunk to base64 and send via WebSocket
         const reader = new FileReader();
         reader.onload = () => {
           const base64 = (reader.result as string).split(',')[1];
+          console.log('Sending audio chunk via WebSocket:', base64.length, 'chars');
           sendMessage({
             type: 'audio_chunk',
             audio: base64,
