@@ -599,12 +599,20 @@ export default function Home() {
                         variant={isTranscriptionActive ? "destructive" : "default"}
                         className="w-full"
                         size="sm"
+                        disabled={isRecording && !isTranscriptionActive}
                       >
-                        {isTranscriptionActive ? "Stop" : "Start"} Desktop Audio Capture
+                        {isTranscriptionActive ? "Stop Desktop Capture" : "Start Desktop Audio Capture"}
                       </Button>
-                      <p className="text-xs text-amber-600">
-                        💡 When prompted, select "Share tab audio" to capture video sound
-                      </p>
+                      <div className="text-xs space-y-1">
+                        <p className="text-amber-600">
+                          💡 When prompted, select "Share tab audio" to capture video sound
+                        </p>
+                        {audioError && (
+                          <p className="text-red-600 font-medium">
+                            ⚠️ {audioError}
+                          </p>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 </div>

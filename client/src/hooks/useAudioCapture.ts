@@ -206,6 +206,17 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
         throw new Error("No audio track available from screen capture. Make sure to select 'Share tab audio' when prompted.");
       }
 
+      const audioTrack = audioTracks[0];
+      console.log("Audio track settings:", audioTrack.getSettings());
+      console.log("Audio track enabled:", audioTrack.enabled);
+      console.log("Audio track muted:", audioTrack.muted);
+      console.log("Audio track ready state:", audioTrack.readyState);
+
+      // Check if audio track is actually active
+      if (audioTrack.muted || audioTrack.readyState !== 'live') {
+        throw new Error("Audio track is not active. Make sure the selected tab is playing audio and 'Share tab audio' was checked.");
+      }
+
       const audioStream = new MediaStream(audioTracks);
       streamRef.current = audioStream;
       console.log("Audio stream created:", audioStream);
@@ -256,6 +267,14 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       mediaRecorder.start(chunkDuration);
       setIsRecording(true);
       console.log("Desktop audio capture started with chunk duration:", chunkDuration);
+
+      // Add a timeout to check if we're getting audio data
+      setTimeout(() => {
+        if (chunksRef.current.length === 0) {
+          console.warn("No audio data received after 5 seconds. The selected source may not have audio playing.");
+          setError("No audio detected. Make sure the selected tab is playing audio and 'Share tab audio' was checked during screen sharing.");
+        }
+      }, 5000);
 
     } catch (error) {
       console.error("Desktop audio capture error:", error);
