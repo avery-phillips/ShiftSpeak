@@ -272,66 +272,78 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       // Stop video tracks to save resources
       stream.getVideoTracks().forEach(track => track.stop());
 
-      // Create audio context for processing
+      // Try a different approach: Create a new audio context with user interaction
+      // and mix the screen audio with a silent tone generator to force processing
       audioContextRef.current = new AudioContext({ sampleRate });
       const audioContext = audioContextRef.current;
       
-      // Create MediaStreamAudioSourceNode from the audio stream
-      const source = audioContext.createMediaStreamSource(audioStream);
+      // Resume audio context immediately (required for user interaction)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+        console.log("AudioContext resumed");
+      }
       
-      // Use AnalyserNode and MediaRecorder approach instead of deprecated ScriptProcessorNode
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      
-      // Connect source to analyser for monitoring
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-      
-      console.log("Web Audio API setup completed with AnalyserNode");
       console.log("AudioContext state:", audioContext.state);
       console.log("AudioContext sample rate:", audioContext.sampleRate);
       
-      // Resume audio context if needed
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-        console.log("AudioContext resumed for processing");
+      // Create a silent oscillator to "prime" the audio context
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime); // Silent
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+      oscillator.start();
+      
+      console.log("Silent oscillator created to prime audio context");
+      
+      // Create a new MediaStream that Chrome can properly record
+      const processedStream = new MediaStream();
+      
+      // Add the audio track directly to the new stream
+      audioStream.getAudioTracks().forEach(track => {
+        console.log("Adding audio track to processed stream:", track.label);
+        processedStream.addTrack(track);
+      });
+      
+      // Try different MediaRecorder configurations
+      let mediaRecorder: MediaRecorder;
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus'
+      ];
+      
+      for (const mimeType of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          try {
+            mediaRecorder = new MediaRecorder(processedStream, {
+              mimeType: mimeType,
+              audioBitsPerSecond: 128000
+            });
+            console.log("MediaRecorder created with MIME type:", mimeType);
+            break;
+          } catch (e) {
+            console.log("Failed to create MediaRecorder with", mimeType, ":", e);
+            continue;
+          }
+        }
       }
       
-      // Use MediaRecorder with the properly configured audio stream
-      let mediaRecorder: MediaRecorder;
-      try {
-        mediaRecorder = new MediaRecorder(audioStream, {
-          mimeType: 'audio/webm;codecs=opus',
-        });
-      } catch (e) {
-        // Fallback to default codec if opus is not supported
-        mediaRecorder = new MediaRecorder(audioStream);
+      // Fallback to default
+      if (!mediaRecorder) {
+        mediaRecorder = new MediaRecorder(processedStream);
+        console.log("MediaRecorder created with default MIME type:", mediaRecorder.mimeType);
       }
       
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
       
-      console.log("MediaRecorder created with MIME type:", mediaRecorder.mimeType);
-      
-      // Monitor audio levels to verify signal
-      const checkAudioLevel = () => {
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-        
-        if (average > 0) {
-          console.log("Audio level detected:", average);
-        }
-        
-        if (isRecording) {
-          requestAnimationFrame(checkAudioLevel);
-        }
-      };
+      // Force user interaction by playing a brief silent audio
+      const silentAudio = new Audio();
+      silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmolBTiS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmolBTiS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXrTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXrTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXrTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXrTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAoUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFApGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFAlGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFAlGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFAlGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFAlGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFAlGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFAlGn+DyvmolBTiS1/HNeSsFJHfG8N2QQAkUXbTp66hVFAlGn+DyvmolBTiQ==';
+      silentAudio.play().catch(() => {}); // Ignore errors
       
       mediaRecorder.ondataavailable = (event) => {
         console.log("MediaRecorder data available:", event.data.size, "bytes");
@@ -358,15 +370,14 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       
       mediaRecorder.onstart = () => {
         console.log("MediaRecorder started successfully");
-        checkAudioLevel(); // Start audio level monitoring
       };
       
-      // Start recording with smaller time slices for more frequent chunks
-      mediaRecorder.start(chunkDuration);
-      console.log("MediaRecorder started with timeslice:", chunkDuration, "ms");
+      // Start recording with a more aggressive timeslice
+      mediaRecorder.start(500); // 500ms chunks for more frequent updates
+      console.log("MediaRecorder started with timeslice: 500ms");
       
       setIsRecording(true);
-      console.log("Desktop audio capture started with Web Audio API");
+      console.log("Desktop audio capture started with enhanced MediaRecorder approach");
 
       // Add a timeout to check if we're getting audio data
       setTimeout(() => {
