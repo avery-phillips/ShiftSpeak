@@ -166,7 +166,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate URL format
       try {
-        new URL(url);
+        const urlObj = new URL(url);
+        
+        // Check for unsupported platforms
+        if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+          return res.status(400).json({ 
+            error: "YouTube URLs are not supported. Please use direct links to audio/video files (e.g., .mp3, .wav, .mp4)" 
+          });
+        }
+        
+        if (urlObj.hostname.includes('tiktok.com') || urlObj.hostname.includes('instagram.com') || urlObj.hostname.includes('twitter.com')) {
+          return res.status(400).json({ 
+            error: "Social media URLs are not supported. Please use direct links to audio/video files (e.g., .mp3, .wav, .mp4)" 
+          });
+        }
+        
       } catch (error) {
         return res.status(400).json({ error: "Invalid URL format" });
       }
