@@ -184,6 +184,7 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
 
     try {
       setError(null);
+      console.log("Starting desktop audio capture...");
       
       // Request screen/tab sharing with audio
       const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -195,6 +196,10 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
         } as any,
       });
 
+      console.log("Display media stream obtained:", stream);
+      console.log("Audio tracks:", stream.getAudioTracks().length);
+      console.log("Video tracks:", stream.getVideoTracks().length);
+
       // Extract only the audio track
       const audioTracks = stream.getAudioTracks();
       if (audioTracks.length === 0) {
@@ -203,6 +208,7 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
 
       const audioStream = new MediaStream(audioTracks);
       streamRef.current = audioStream;
+      console.log("Audio stream created:", audioStream);
 
       // Stop video tracks to save resources
       stream.getVideoTracks().forEach(track => track.stop());
@@ -217,13 +223,16 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
 
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
+      console.log("MediaRecorder created, starting recording...");
 
       mediaRecorder.ondataavailable = (event) => {
+        console.log("MediaRecorder data available:", event.data.size, "bytes");
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
           
           // Convert blob to ArrayBuffer and call callback
           event.data.arrayBuffer().then((buffer) => {
+            console.log("Converting audio chunk to ArrayBuffer:", buffer.byteLength, "bytes");
             const chunk: AudioChunk = {
               data: buffer,
               timestamp: Date.now(),
@@ -234,15 +243,22 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
         }
       };
 
-      mediaRecorder.onerror = () => {
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
         setError('Recording error occurred');
         setIsRecording(false);
       };
 
+      mediaRecorder.onstart = () => {
+        console.log("MediaRecorder started successfully");
+      };
+
       mediaRecorder.start(chunkDuration);
       setIsRecording(true);
+      console.log("Desktop audio capture started with chunk duration:", chunkDuration);
 
     } catch (error) {
+      console.error("Desktop audio capture error:", error);
       setError(`Failed to capture desktop audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [isSupported, chunkDuration, onAudioChunk, sampleRate]);

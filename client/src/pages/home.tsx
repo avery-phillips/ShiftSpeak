@@ -272,7 +272,9 @@ export default function Home() {
         }
         
         // Start desktop audio capture
+        console.log("Attempting to capture desktop audio...");
         await captureDesktopAudio();
+        console.log("Desktop audio capture initiated, setting transcription active");
         setIsTranscriptionActive(true);
         
         addNotification({
