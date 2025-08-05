@@ -643,6 +643,29 @@ export default function Home() {
                 </CardContent>
               </Card>
             </div>
+            
+            {/* File Upload Transcript Results */}
+            {currentSession && transcriptEntries.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transcription Results</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TranscriptPanel
+                    entries={transcriptEntries}
+                    isListening={false}
+                    onClear={handleClearTranscript}
+                    onExport={(format) => {
+                      if (currentSession) {
+                        window.open(`/api/sessions/${currentSession.id}/export?format=${format}`);
+                      }
+                    }}
+                    showOriginal={showOriginal}
+                    showTranslation={showTranslation}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
 
