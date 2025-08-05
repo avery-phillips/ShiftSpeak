@@ -78,8 +78,8 @@ export default function Home() {
     enabled: !!currentSession,
   });
 
-  // WebSocket for real-time transcription
-  const { isConnected, sendMessage } = useWebSocket({
+  // WebSocket for real-time transcription (only connect when needed)
+  const { isConnected, sendMessage, connect, disconnect } = useWebSocket({
     onMessage: (message: WebSocketMessage) => {
       if (message.type === 'transcription_result') {
         setCurrentCaption({
@@ -109,6 +109,7 @@ export default function Home() {
     onDisconnect: () => {
       console.log('WebSocket disconnected');
     },
+    autoReconnect: false, // Disable auto-reconnect, connect only when needed
   });
 
   // Audio capture hook
@@ -259,25 +260,41 @@ export default function Home() {
 
   const handleToggleDesktopAudio = async (active: boolean) => {
     if (active) {
-      // Create new session
-      if (!currentSession) {
-        await createSessionMutation.mutateAsync();
+      try {
+        // Connect WebSocket first
+        connect();
+        
+        // Create new session
+        if (!currentSession) {
+          await createSessionMutation.mutateAsync();
+        }
+        
+        // Start desktop audio capture
+        await captureDesktopAudio();
+        setIsTranscriptionActive(true);
+        
+        addNotification({
+          type: 'success',
+          title: 'Desktop Audio Capture Started',
+          description: 'Capturing audio from your screen/tab for live subtitles.',
+        });
+      } catch (error) {
+        // Disconnect WebSocket if capture failed
+        disconnect();
+        addNotification({
+          type: 'error',
+          title: 'Capture Failed',
+          description: error instanceof Error ? error.message : 'Failed to start desktop audio capture.',
+        });
       }
-      
-      // Start desktop audio capture
-      await captureDesktopAudio();
-      setIsTranscriptionActive(true);
-      
-      addNotification({
-        type: 'success',
-        title: 'Desktop Audio Capture Started',
-        description: 'Capturing audio from your screen/tab for live subtitles.',
-      });
     } else {
       // Stop audio capture
       stopRecording();
       setIsTranscriptionActive(false);
       setCurrentCaption(null);
+      
+      // Disconnect WebSocket
+      disconnect();
       
       addNotification({
         type: 'info',

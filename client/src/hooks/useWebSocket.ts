@@ -30,6 +30,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       return;
     }
 
+    // Don't try to reconnect if already connecting
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
+
     setIsConnecting(true);
     
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -39,6 +44,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log("WebSocket connected");
       setIsConnected(true);
       setIsConnecting(false);
       onConnect?.();
@@ -59,13 +65,16 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       setIsConnecting(false);
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log("WebSocket disconnected", event.code, event.reason);
       setIsConnected(false);
       setIsConnecting(false);
+      wsRef.current = null;
       onDisconnect?.();
 
-      // Auto-reconnect if enabled
-      if (autoReconnect) {
+      // Only auto-reconnect if it wasn't a normal closure and auto-reconnect is enabled
+      if (autoReconnect && event.code !== 1000) {
+        console.log(`Reconnecting in ${reconnectDelay}ms...`);
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
         }, reconnectDelay);
@@ -76,10 +85,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
     }
     
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.close(1000, 'Client disconnect'); // Normal closure
       wsRef.current = null;
     }
     
@@ -95,13 +105,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
   }, []);
 
+  // Don't auto-connect, let the caller decide when to connect
   useEffect(() => {
-    connect();
-
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [disconnect]);
 
   return {
     isConnected,
