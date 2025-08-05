@@ -165,6 +165,30 @@ export default function Home() {
     }
   }, [userSettings]);
 
+  // Check API status on mount
+  useEffect(() => {
+    const checkApiStatus = async () => {
+      try {
+        const response = await fetch('/api/status');
+        if (response.ok) {
+          const status = await response.json();
+          setApiStatus({
+            lemonfox: status.lemonfox || 'disconnected',
+            translation: status.translation || 'disconnected',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to check API status:', error);
+        setApiStatus({
+          lemonfox: 'disconnected',
+          translation: 'disconnected',
+        });
+      }
+    };
+
+    checkApiStatus();
+  }, []);
+
   // Show audio error notifications
   useEffect(() => {
     if (audioError) {

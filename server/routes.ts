@@ -15,6 +15,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // API Routes
   
+  // Status endpoint
+  app.get("/api/status", async (req, res) => {
+    try {
+      // Test API connections
+      const lemonfoxStatus = await testLemonfoxConnection();
+      const openaiStatus = await testOpenAIConnection();
+      
+      res.json({
+        lemonfox: lemonfoxStatus,
+        translation: openaiStatus,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error checking API status:", error);
+      res.status(500).json({ 
+        error: "Failed to check API status",
+        lemonfox: 'error',
+        translation: 'error'
+      });
+    }
+  });
+
+  // Test API connections
+  async function testLemonfoxConnection(): Promise<'connected' | 'disconnected' | 'error'> {
+    try {
+      // Just check if API key exists for now to avoid making actual API calls
+      const apiKey = process.env.LEMONFOX_API_KEY;
+      return apiKey ? 'connected' : 'disconnected';
+    } catch (error) {
+      console.error("Lemonfox connection test failed:", error);
+      return 'disconnected';
+    }
+  }
+
+  async function testOpenAIConnection(): Promise<'connected' | 'disconnected' | 'error'> {
+    try {
+      // Just check if API key exists for now to avoid making actual API calls
+      const apiKey = process.env.OPENAI_API_KEY;
+      return apiKey ? 'connected' : 'disconnected';
+    } catch (error) {
+      console.error("OpenAI connection test failed:", error);
+      return 'disconnected';
+    }
+  }
+  
   // Create a new transcription session
   app.post("/api/sessions", async (req, res) => {
     try {

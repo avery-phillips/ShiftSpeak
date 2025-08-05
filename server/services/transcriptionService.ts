@@ -33,6 +33,28 @@ export class LemonfoxTranscriptionService {
     }
   }
 
+  private mapLanguageCode(language: string): string | undefined {
+    const languageMap: Record<string, string> = {
+      'english': 'en',
+      'spanish': 'es', 
+      'french': 'fr',
+      'german': 'de',
+      'chinese': 'zh',
+      'japanese': 'ja',
+      'portuguese': 'pt',
+      'russian': 'ru',
+      'italian': 'it',
+      'korean': 'ko',
+      'dutch': 'nl',
+      'arabic': 'ar'
+    };
+    
+    // Return undefined for auto-detect
+    if (language === 'auto') return undefined;
+    
+    return languageMap[language] || language;
+  }
+
   async transcribeAudio(audioData: Buffer | string, options: TranscriptionOptions = {}): Promise<TranscriptionResult> {
     const formData = new FormData();
     
@@ -43,9 +65,12 @@ export class LemonfoxTranscriptionService {
       formData.append('file', new Blob([audioData]));
     }
 
-    // Add optional parameters
+    // Add optional parameters with language mapping
     if (options.language) {
-      formData.append('language', options.language);
+      const mappedLanguage = this.mapLanguageCode(options.language);
+      if (mappedLanguage) {
+        formData.append('language', mappedLanguage);
+      }
     }
     
     formData.append('response_format', options.responseFormat || 'verbose_json');
