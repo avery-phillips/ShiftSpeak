@@ -89,60 +89,112 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
 
     try {
       setError(null);
+      console.log("🎤 Starting microphone recording...");
       
-      // Request microphone access
+      // Simple, reliable microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate,
+          echoCancellation: false, // Disable processing for cleaner audio
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 44100, // Standard sample rate
           channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
         },
       });
 
+      console.log("🎤 Microphone stream obtained");
       streamRef.current = stream;
 
-      // Create audio context for processing
-      audioContextRef.current = new AudioContext({ sampleRate });
+      // Verify we have audio tracks
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        throw new Error("No audio tracks available");
+      }
       
-      // Create MediaRecorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
+      console.log("🎤 Audio track:", {
+        label: audioTracks[0].label,
+        enabled: audioTracks[0].enabled,
+        readyState: audioTracks[0].readyState
       });
+      
+      // Create MediaRecorder with fallback
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus',
+        });
+      } catch (e) {
+        console.log("🎤 Opus not supported, using default codec");
+        mediaRecorder = new MediaRecorder(stream);
+      }
 
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
+      console.log("🎤 MediaRecorder created with:", mediaRecorder.mimeType);
+
       mediaRecorder.ondataavailable = (event) => {
+        console.log("🎤 Audio data available:", event.data.size, "bytes");
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
           
-          // Convert blob to ArrayBuffer and call callback
+          // Convert blob to ArrayBuffer immediately
           event.data.arrayBuffer().then((buffer) => {
+            console.log("🎤 Audio chunk processed:", buffer.byteLength, "bytes");
             const chunk: AudioChunk = {
               data: buffer,
               timestamp: Date.now(),
               duration: chunkDuration,
             };
             onAudioChunk?.(chunk);
+          }).catch(error => {
+            console.error("🎤 Error processing audio data:", error);
           });
+        } else {
+          console.warn("🎤 Empty audio data received");
         }
       };
 
       mediaRecorder.onerror = (event) => {
-        console.error("MediaRecorder error:", event);
+        console.error("🎤 MediaRecorder error:", event);
         setError("Recording error occurred");
         stopRecording();
       };
 
-      mediaRecorder.start(chunkDuration);
+      mediaRecorder.onstart = () => {
+        console.log("🎤 MediaRecorder started successfully");
+      };
+
+      // Start with 1 second intervals for quick feedback
+      mediaRecorder.start(1000);
       setIsRecording(true);
+      console.log("🎤 Recording started with 1s intervals");
+
+      // Check for audio data after 3 seconds
+      setTimeout(() => {
+        if (chunksRef.current.length === 0) {
+          console.warn("🎤 No audio data received - microphone may not be working");
+          setError("No audio detected. Please check your microphone and speak louder.");
+        } else {
+          console.log("🎤 Audio flowing normally:", chunksRef.current.length, "chunks");
+        }
+      }, 3000);
 
     } catch (err) {
-      console.error("Error starting recording:", err);
-      setError(err instanceof Error ? err.message : "Failed to start recording");
+      console.error("🎤 Error starting recording:", err);
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          setError("Microphone permission denied. Please allow microphone access.");
+        } else if (err.name === 'NotFoundError') {
+          setError("No microphone found. Please connect a microphone.");
+        } else {
+          setError(`Recording failed: ${err.message}`);
+        }
+      } else {
+        setError("Failed to start recording");
+      }
     }
-  }, [isSupported, sampleRate, chunkDuration, onAudioChunk]);
+  }, [isSupported, chunkDuration, onAudioChunk]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
