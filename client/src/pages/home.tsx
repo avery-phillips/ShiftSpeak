@@ -156,25 +156,31 @@ export default function Home() {
       if (settings.showOriginal !== undefined) setShowOriginal(settings.showOriginal);
       if (settings.showTranslation !== undefined) setShowTranslation(settings.showTranslation);
       if (settings.speakerLabels !== undefined) setSpeakerLabels(settings.speakerLabels);
-      
-      // Update API status based on settings
-      setApiStatus(prev => ({
-        ...prev,
-        translation: settings.translationService ? 'connected' : 'disconnected',
-      }));
     }
   }, [userSettings]);
 
-  // Check API status on mount
+  // Check API status on mount and periodically
   useEffect(() => {
     const checkApiStatus = async () => {
       try {
-        const response = await fetch('/api/status');
+        const response = await fetch('/api/status', {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
         if (response.ok) {
           const status = await response.json();
+          console.log('API Status Response:', status);
           setApiStatus({
             lemonfox: status.lemonfox || 'disconnected',
             translation: status.translation || 'disconnected',
+          });
+        } else {
+          console.error('API status check failed:', response.status, response.statusText);
+          setApiStatus({
+            lemonfox: 'disconnected',
+            translation: 'disconnected',
           });
         }
       } catch (error) {
@@ -186,7 +192,13 @@ export default function Home() {
       }
     };
 
+    // Check immediately
     checkApiStatus();
+    
+    // Check every 30 seconds
+    const interval = setInterval(checkApiStatus, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Show audio error notifications
