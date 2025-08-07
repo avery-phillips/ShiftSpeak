@@ -23,6 +23,16 @@ Shift Speak is a real-time speech-to-text transcription and translation web app 
 4. Optionally translate content to a selected target language  
 5. Download or copy transcripts when ready  
 
+## 🖼️ Screenshots
+
+| Home Screen | Audio Source Selection |
+|-------------|------------------------|
+| ![](./screenshots/home-screen.png) | ![](./screenshots/audio-source-selection.png) |
+
+| File Upload Panel | Transcription Output |
+|-------------------|-----------------------|
+| ![](./screenshots/file-upload-panel.png) | ![](./screenshots/transcription-output.png) |
+
 ## 🖥️ Tech Stack
 
 **Frontend:**  
