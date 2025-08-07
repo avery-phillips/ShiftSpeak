@@ -269,32 +269,39 @@ export default function Home() {
   const handleToggleDesktopAudio = async (active: boolean) => {
     if (active) {
       try {
-        // Connect WebSocket first
-        connect();
+        console.log('🎯 Desktop audio toggle - connecting WebSocket...');
+        // Connect WebSocket first and wait for it to be ready
+        await connect();
+        console.log('🎯 WebSocket connected, creating session...');
         
         // Create new session
         if (!currentSession) {
           await createSessionMutation.mutateAsync();
+          console.log('🎯 Session created, starting tab audio capture...');
         }
         
-        // Start desktop audio capture
-        console.log("Attempting to capture desktop audio...");
-        await captureDesktopAudio();
-        console.log("Desktop audio capture initiated, setting transcription active");
+        // Set transcription as active before starting capture
         setIsTranscriptionActive(true);
+        
+        // Use the new working approach for tab audio capture
+        console.log("🎯 Using new tab audio capture method...");
+        await captureTabAudioDirectly();
+        console.log("🎯 Tab audio capture started successfully!");
         
         addNotification({
           type: 'success',
-          title: 'Desktop Audio Capture Started',
+          title: 'Tab Audio Capture Started',
           description: 'Capturing audio from your screen/tab for live subtitles.',
         });
       } catch (error) {
+        console.error('🎯 Error during desktop audio toggle:', error);
         // Disconnect WebSocket if capture failed
         disconnect();
+        setIsTranscriptionActive(false);
         addNotification({
           type: 'error',
           title: 'Capture Failed',
-          description: error instanceof Error ? error.message : 'Failed to start desktop audio capture.',
+          description: error instanceof Error ? error.message : 'Failed to start tab audio capture.',
         });
       }
     } else {
