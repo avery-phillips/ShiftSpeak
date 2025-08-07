@@ -573,8 +573,8 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       // Stop video tracks to save resources
       stream.getVideoTracks().forEach(track => track.stop());
 
-      // Create audio context with our target sample rate
-      const audioContext = new AudioContext({ sampleRate: 16000 });
+      // Create audio context to match the source audio sample rate initially
+      const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
       
       // Create audio stream with only audio track
@@ -584,16 +584,28 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       // Create media stream source
       const source = audioContext.createMediaStreamSource(audioStream);
       
-      // Create script processor for manual audio processing
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      // Create script processor for manual audio processing - match input channels
+      const processor = audioContext.createScriptProcessor(4096, 2, 1);
       
       let audioChunkCount = 0;
       processor.onaudioprocess = (event) => {
         const inputBuffer = event.inputBuffer;
-        const inputData = inputBuffer.getChannelData(0);
         
-        // Check if we actually have audio data
-        const hasAudio = inputData.some(sample => Math.abs(sample) > 0.001);
+        // Mix stereo to mono if we have multiple channels
+        let inputData: Float32Array;
+        if (inputBuffer.numberOfChannels === 2) {
+          const leftChannel = inputBuffer.getChannelData(0);
+          const rightChannel = inputBuffer.getChannelData(1);
+          inputData = new Float32Array(leftChannel.length);
+          for (let i = 0; i < leftChannel.length; i++) {
+            inputData[i] = (leftChannel[i] + rightChannel[i]) / 2; // Mix to mono
+          }
+        } else {
+          inputData = inputBuffer.getChannelData(0);
+        }
+        
+        // Check if we actually have audio data (lower threshold)
+        const hasAudio = inputData.some(sample => Math.abs(sample) > 0.0001);
         
         if (hasAudio) {
           audioChunkCount++;
