@@ -123,6 +123,7 @@ export default function Home() {
     stopRecording, 
     captureFromElement,
     captureDesktopAudio,
+    captureTabAudioDirectly,
     error: audioError 
   } = useAudioCapture({
     captureMode: captureMode,
@@ -373,7 +374,7 @@ export default function Home() {
       
       // Start audio capture based on selected mode
       if (captureMode === 'tab-audio') {
-        await captureDesktopAudio();
+        await captureTabAudioDirectly();
       } else {
         await startRecording();
       }

@@ -523,6 +523,117 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
     }
   }, [isSupported, chunkDuration, onAudioChunk, sampleRate]);
 
+  // New Web Audio API approach for tab audio that bypasses MediaRecorder
+  const captureTabAudioDirectly = useCallback(async () => {
+    if (!isSupported) {
+      setError("Audio capture is not supported");
+      return;
+    }
+
+    try {
+      setError(null);
+      console.log("🎬 Starting direct tab audio capture (Web Audio API)...");
+      
+      // Request screen/tab sharing with audio
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000, // Match our target sample rate
+          echoCancellation: false,
+          noiseSuppression: false,
+        } as any,
+      });
+
+      console.log("🎬 Display media stream obtained:", {
+        audioTracks: stream.getAudioTracks().length,
+        videoTracks: stream.getVideoTracks().length
+      });
+
+      // Extract only the audio track
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        throw new Error("No audio track available. Make sure to select 'Share tab audio' when prompted.");
+      }
+
+      const audioTrack = audioTracks[0];
+      console.log("🎬 Audio track ready:", {
+        label: audioTrack.label,
+        enabled: audioTrack.enabled,
+        muted: audioTrack.muted,
+        readyState: audioTrack.readyState,
+        settings: audioTrack.getSettings()
+      });
+
+      // Stop video tracks to save resources
+      stream.getVideoTracks().forEach(track => track.stop());
+
+      // Create audio context with our target sample rate
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+      
+      // Create audio stream with only audio track
+      const audioStream = new MediaStream([audioTrack]);
+      streamRef.current = audioStream;
+      
+      // Create media stream source
+      const source = audioContext.createMediaStreamSource(audioStream);
+      
+      // Create script processor for manual audio processing
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      
+      let audioChunkCount = 0;
+      processor.onaudioprocess = (event) => {
+        const inputBuffer = event.inputBuffer;
+        const inputData = inputBuffer.getChannelData(0);
+        
+        // Check if we actually have audio data
+        const hasAudio = inputData.some(sample => Math.abs(sample) > 0.001);
+        
+        if (hasAudio) {
+          audioChunkCount++;
+          
+          // Convert Float32Array to 16-bit PCM ArrayBuffer
+          const pcmBuffer = floatTo16BitPCM(inputData);
+          
+          console.log(`🎬 Audio chunk ${audioChunkCount}: ${pcmBuffer.byteLength} bytes, samples: ${inputData.length}`);
+          
+          const audioChunk: AudioChunk = {
+            data: pcmBuffer,
+            timestamp: Date.now(),
+            duration: (inputData.length / audioContext.sampleRate) * 1000,
+          };
+          
+          onAudioChunk?.(audioChunk);
+        } else if (audioChunkCount === 0) {
+          // Only log silence if we haven't received any audio yet
+          console.log("🎬 Audio processing active but no audio signal detected");
+        }
+      };
+      
+      // Connect audio nodes
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      
+      console.log("🎬 Web Audio API processing pipeline established");
+      setIsRecording(true);
+      
+      // Check for audio data after 3 seconds
+      setTimeout(() => {
+        if (audioChunkCount === 0) {
+          console.warn("🎬 No audio data processed after 3 seconds - tab may be muted or paused");
+          setError("No audio detected from tab. Please ensure the selected tab is playing audio and 'Share tab audio' was enabled.");
+        } else {
+          console.log(`🎬 Tab audio capture working! Processed ${audioChunkCount} audio chunks`);
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error("🎬 Direct tab audio capture error:", error);
+      setError(`Failed to capture tab audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [isSupported, onAudioChunk]);
+
   return {
     isRecording,
     isSupported,
@@ -531,5 +642,6 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
     stopRecording,
     captureFromElement,
     captureDesktopAudio,
+    captureTabAudioDirectly,
   };
 }
