@@ -372,7 +372,11 @@ export default function Home() {
       }
       
       // Start audio capture based on selected mode
-      await startRecording();
+      if (captureMode === 'tab-audio') {
+        await captureDesktopAudio();
+      } else {
+        await startRecording();
+      }
       setIsTranscriptionActive(true);
       
       const modeText = captureMode === 'tab-audio' ? 'Tab Audio' : 'Microphone';
