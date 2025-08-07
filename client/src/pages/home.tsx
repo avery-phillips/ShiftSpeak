@@ -364,13 +364,19 @@ export default function Home() {
 
   const handleStartTranscription = async () => {
     try {
-      // Connect WebSocket first
-      connect();
+      console.log('🎯 Starting transcription - connecting WebSocket...');
+      // Connect WebSocket first and wait for it to be ready
+      await connect();
+      console.log('🎯 WebSocket connected, creating session...');
       
       // Create new session
       if (!currentSession) {
         await createSessionMutation.mutateAsync();
+        console.log('🎯 Session created, starting audio capture...');
       }
+      
+      // Set transcription as active before starting capture
+      setIsTranscriptionActive(true);
       
       // Start audio capture based on selected mode
       if (captureMode === 'tab-audio') {
@@ -378,8 +384,8 @@ export default function Home() {
       } else {
         await startRecording();
       }
-      setIsTranscriptionActive(true);
       
+      console.log('🎯 Audio capture started successfully!');
       const modeText = captureMode === 'tab-audio' ? 'Tab Audio' : 'Microphone';
       addNotification({
         type: 'success',
@@ -387,8 +393,10 @@ export default function Home() {
         description: `Live transcription is now active using ${modeText.toLowerCase()}.`,
       });
     } catch (error) {
+      console.error('🎯 Error during transcription start:', error);
       // Disconnect WebSocket if capture failed
       disconnect();
+      setIsTranscriptionActive(false);
       addNotification({
         type: 'error',
         title: 'Capture Failed',
