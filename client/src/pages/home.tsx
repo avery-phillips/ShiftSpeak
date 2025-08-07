@@ -134,7 +134,7 @@ export default function Home() {
         const reader = new FileReader();
         reader.onload = () => {
           const base64 = (reader.result as string).split(',')[1];
-          console.log('Sending audio chunk via WebSocket:', base64.length, 'chars');
+          console.log('Sending audio chunk via WebSocket:', base64.length, 'chars', 'Original data:', chunk.data.byteLength, 'bytes');
           sendMessage({
             type: 'audio_chunk',
             audio: base64,
@@ -145,7 +145,10 @@ export default function Home() {
             timestamp: chunk.timestamp,
           });
         };
-        reader.readAsDataURL(new Blob([chunk.data]));
+        
+        // Create proper audio blob with MIME type for better compatibility
+        const audioBlob = new Blob([chunk.data], { type: 'audio/wav' });
+        reader.readAsDataURL(audioBlob);
       }
     },
   });
@@ -169,13 +172,15 @@ export default function Home() {
 
   // Apply user settings when loaded
   useEffect(() => {
-    if (userSettings && 'settings' in userSettings) {
-      const settings = userSettings.settings;
-      if (settings.defaultSourceLanguage) setSourceLanguage(settings.defaultSourceLanguage);
-      if (settings.defaultTargetLanguage) setTargetLanguage(settings.defaultTargetLanguage);
-      if (settings.showOriginal !== undefined) setShowOriginal(settings.showOriginal);
-      if (settings.showTranslation !== undefined) setShowTranslation(settings.showTranslation);
-      if (settings.speakerLabels !== undefined) setSpeakerLabels(settings.speakerLabels);
+    if (userSettings && typeof userSettings === 'object' && userSettings !== null && 'settings' in userSettings) {
+      const settings = (userSettings as any).settings;
+      if (settings && typeof settings === 'object') {
+        if (settings.defaultSourceLanguage) setSourceLanguage(settings.defaultSourceLanguage);
+        if (settings.defaultTargetLanguage) setTargetLanguage(settings.defaultTargetLanguage);
+        if (settings.showOriginal !== undefined) setShowOriginal(settings.showOriginal);
+        if (settings.showTranslation !== undefined) setShowTranslation(settings.showTranslation);
+        if (settings.speakerLabels !== undefined) setSpeakerLabels(settings.speakerLabels);
+      }
     }
   }, [userSettings]);
 
@@ -980,8 +985,8 @@ export default function Home() {
             showOriginal={showOriginal}
             showTranslation={showTranslation}
             isLive={isTranscriptionActive}
-            position={(userSettings && 'settings' in userSettings) ? userSettings.settings.captionPosition : 'bottom'}
-            fontSize={(userSettings && 'settings' in userSettings) ? userSettings.settings.fontSize : 'medium'}
+            position={(userSettings && typeof userSettings === 'object' && userSettings !== null && 'settings' in userSettings) ? (userSettings as any).settings?.captionPosition || 'bottom' : 'bottom'}
+            fontSize={(userSettings && typeof userSettings === 'object' && userSettings !== null && 'settings' in userSettings) ? (userSettings as any).settings?.fontSize || 'medium' : 'medium'}
           />
         )}
 
@@ -989,7 +994,7 @@ export default function Home() {
         <SettingsModal
           isOpen={settingsModalOpen}
           onClose={() => setSettingsModalOpen(false)}
-          settings={(userSettings && 'settings' in userSettings) ? userSettings.settings : {}}
+          settings={(userSettings && typeof userSettings === 'object' && userSettings !== null && 'settings' in userSettings) ? (userSettings as any).settings || {} : {}}
           onSave={(settings) => updateSettingsMutation.mutate(settings)}
         />
 

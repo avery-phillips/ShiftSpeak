@@ -437,7 +437,7 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       });
       
       // Try different MediaRecorder configurations
-      let mediaRecorder: MediaRecorder;
+      let mediaRecorder: MediaRecorder | undefined;
       const mimeTypes = [
         'audio/webm;codecs=opus',
         'audio/webm',
@@ -465,6 +465,11 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       if (!mediaRecorder) {
         mediaRecorder = new MediaRecorder(processedStream);
         console.log("MediaRecorder created with default MIME type:", mediaRecorder.mimeType);
+      }
+      
+      // Ensure mediaRecorder is defined
+      if (!mediaRecorder) {
+        throw new Error('Failed to create MediaRecorder with any supported format');
       }
       
       mediaRecorderRef.current = mediaRecorder;
@@ -596,15 +601,23 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
           // Convert Float32Array to 16-bit PCM ArrayBuffer
           const pcmBuffer = floatTo16BitPCM(inputData);
           
-          console.log(`🎬 Audio chunk ${audioChunkCount}: ${pcmBuffer.byteLength} bytes, samples: ${inputData.length}`);
+          // Create proper WAV file with headers for better API compatibility
+          const wavBlob = createWavBlob(pcmBuffer, audioContext.sampleRate);
           
-          const audioChunk: AudioChunk = {
-            data: pcmBuffer,
-            timestamp: Date.now(),
-            duration: (inputData.length / audioContext.sampleRate) * 1000,
-          };
+          console.log(`🎬 Audio chunk ${audioChunkCount}: PCM ${pcmBuffer.byteLength} bytes -> WAV ${wavBlob.size} bytes, samples: ${inputData.length}`);
           
-          onAudioChunk?.(audioChunk);
+          // Convert WAV blob to ArrayBuffer
+          wavBlob.arrayBuffer().then((wavBuffer) => {
+            const audioChunk: AudioChunk = {
+              data: wavBuffer,
+              timestamp: Date.now(),
+              duration: (inputData.length / audioContext.sampleRate) * 1000,
+            };
+            
+            onAudioChunk?.(audioChunk);
+          }).catch(error => {
+            console.error('🎬 Error converting WAV blob to buffer:', error);
+          });
         } else if (audioChunkCount === 0) {
           // Only log silence if we haven't received any audio yet
           console.log("🎬 Audio processing active but no audio signal detected");
